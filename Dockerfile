@@ -39,29 +39,15 @@ ENV PYTHONUNBUFFERED=1
 # Set working directory
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
-
 # Copy the virtual environment from the builder stage
-COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application source code
-COPY --chown=appuser:appuser src ./src
-COPY --chown=appuser:appuser config.yaml ./
+COPY src ./src
+COPY config.yaml ./
 
-# Create directory for database with proper permissions
-RUN mkdir -p /app/data && chown appuser:appuser /app/data
-
-# Switch to the non-privileged user
-USER appuser
+# Create directory for database
+RUN mkdir -p /app/data
 
 # Set PATH to use the virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
