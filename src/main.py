@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from api import router as api_router
-from db import GameDB, PlayerDB, get_db_session, init_db
+from db import GameDB, PlayerDB, get_db_session, get_or_create_player, init_db
 from scores import apply_doubling_penalty
 
 app = FastAPI()
@@ -67,10 +67,7 @@ async def create_new_game(request: Request, players: list[str] = Form(...)):
 
         # Auto-create player records if they don't exist (shouldn't happen since we're selecting from existing)
         for username in game.player_usernames:
-            existing = session.query(PlayerDB).filter_by(username=username).first()
-            if not existing:
-                player = PlayerDB(username=username, surname=None)
-                session.add(player)
+            get_or_create_player(session, username, surname=None)
         session.commit()
 
         # Redirect to the newly created game page
@@ -151,19 +148,16 @@ async def create_player(
             raise HTTPException(status_code=400, detail="Username is required")
 
         username = username.strip()
+        surname_value: str | None = surname.strip() if surname.strip() else None
 
-        # Check if player already exists
-        existing = session.query(PlayerDB).filter_by(username=username).first()
-        if existing:
+        # Try to create player (raises error if exists)
+        player, created = get_or_create_player(session, username, surname_value)
+
+        if not created:
             raise HTTPException(
                 status_code=400, detail=f"Player '{username}' already exists"
             )
 
-        # Create new player
-        player = PlayerDB(
-            username=username, surname=surname.strip() if surname.strip() else None
-        )
-        session.add(player)
         session.commit()
 
         return {"success": True, "username": username, "surname": player.surname}
@@ -301,10 +295,7 @@ async def update_player_name(
             game.player_usernames = player_usernames
 
             # Create player record if doesn't exist
-            existing = session.query(PlayerDB).filter_by(username=new_username).first()
-            if not existing:
-                player = PlayerDB(username=new_username, surname=None)
-                session.add(player)
+            get_or_create_player(session, new_username, surname=None)
 
             session.commit()
 
@@ -390,10 +381,7 @@ async def add_player(request: Request, game_id: int, username: str = Form(None))
         game.player_usernames = player_usernames
 
         # Create player record if doesn't exist
-        existing = session.query(PlayerDB).filter_by(username=new_username).first()
-        if not existing:
-            player = PlayerDB(username=new_username, surname=None)
-            session.add(player)
+        get_or_create_player(session, new_username, surname=None)
 
         session.commit()
 

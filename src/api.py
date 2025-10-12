@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
 
-from db import GameDB, PlayerDB, RoundDB, get_db_session
+from db import GameDB, PlayerDB, RoundDB, get_db_session, get_or_create_player
 
 router = APIRouter(prefix="/api")
 
@@ -56,28 +56,24 @@ def create_player(player_data: PlayerCreate):
     """Create a new player or return existing one."""
     session = get_db_session()
     try:
-        # Check if player already exists
-        existing = (
-            session.query(PlayerDB).filter_by(username=player_data.username).first()
+        player, created = get_or_create_player(
+            session, player_data.username, player_data.surname
         )
-        if existing:
-            # Return existing player instead of error
+
+        if not created:
+            # Return existing player with 200 status
+            session.commit()  # Commit any pending changes
             return Response(
                 content=PlayerResponse(
-                    username=existing.username,
-                    surname=existing.surname,
-                    created_at=existing.created_at,
+                    username=player.username,
+                    surname=player.surname,
+                    created_at=player.created_at,
                 ).model_dump_json(),
                 status_code=status.HTTP_200_OK,
                 media_type="application/json",
             )
 
-        # Create new player
-        player = PlayerDB(
-            username=player_data.username,
-            surname=player_data.surname,
-        )
-        session.add(player)
+        # New player created, commit and return with 201 status
         session.commit()
         session.refresh(player)
 
@@ -208,10 +204,7 @@ def create_game(game_data: GameCreate):
     try:
         # Auto-create players if they don't exist
         for username in game_data.player_usernames:
-            existing = session.query(PlayerDB).filter_by(username=username).first()
-            if not existing:
-                player = PlayerDB(username=username, surname=None)
-                session.add(player)
+            get_or_create_player(session, username, surname=None)
         session.commit()
 
         # Create game

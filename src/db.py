@@ -154,3 +154,27 @@ def get_db_session(database_url: str | None = None) -> Session:
     """Get a database session. Use as a context manager or call close() when done."""
     session_maker = get_session_maker(database_url)
     return session_maker()
+
+
+def get_or_create_player(
+    session: Session, username: str, surname: str | None = None
+) -> tuple[PlayerDB, bool]:
+    """
+    Get an existing player or create a new one.
+
+    Args:
+        session: SQLAlchemy session to use for database operations
+        username: Player's username (primary key)
+        surname: Optional surname (only used when creating new player)
+
+    Returns:
+        Tuple of (player, created) where created is True if player was newly created
+    """
+    existing = session.query(PlayerDB).filter_by(username=username).first()
+    if existing:
+        return (existing, False)
+
+    # Create new player
+    player = PlayerDB(username=username, surname=surname)
+    session.add(player)
+    return (player, True)
