@@ -48,6 +48,60 @@ class Round(BaseModel):
         """
         return apply_doubling_penalty(self.player_raw_scores, self.round_ender)
 
+    def display_data(self, player_order: list[Player]) -> dict:
+        """
+        Generate display data for template rendering.
+
+        Args:
+            player_order: List of players in the order they should be displayed
+
+        Returns:
+            Dictionary containing:
+                - displays: dict[str, str] - Final score display strings by username
+                - details: dict[str, str] - Detail text (winner, finished first, etc.) by username
+                - final_scores: dict[str, int] - Final scores by username
+        """
+        final_scores = self.final_scores()
+        raw_scores = self.player_raw_scores
+
+        # Find minimum scores
+        min_raw_score = min(raw_scores.values()) if raw_scores else None
+        min_final_score = min(final_scores.values()) if final_scores else None
+
+        displays = {}
+        details = {}
+        final_scores_str = {}
+
+        for player in player_order:
+            if player not in raw_scores:
+                continue
+
+            raw_score = raw_scores[player]
+            final_score = final_scores[player]
+            finished_first = self.round_ender == player
+            is_lowest_raw = raw_score == min_raw_score
+            is_winner = final_score == min_final_score
+
+            # Build display string (just the final score)
+            displays[player.username] = str(final_score)
+            final_scores_str[player.username] = final_score
+
+            # Build detail display - show "winner", "finished first" text and raw score if doubled
+            detail_parts = []
+            if is_winner:
+                detail_parts.append("winner")
+            if finished_first:
+                detail_parts.append("finished first")
+            if finished_first and not is_lowest_raw and raw_score > 0:
+                detail_parts.append(f"[{raw_score} x2]")
+            details[player.username] = " ".join(detail_parts) if detail_parts else ""
+
+        return {
+            "displays": displays,
+            "details": details,
+            "final_scores": final_scores_str,
+        }
+
     @classmethod
     def from_db(cls, round_db: "RoundDB", session: Session) -> "Round":
         """
@@ -123,6 +177,44 @@ class Game(BaseModel):
         """Return the player with the lowest total score across all rounds."""
         total_scores = self.player_total_scores()
         return min(total_scores.keys(), key=lambda p: total_scores[p])
+
+    def winner_text(self) -> str:
+        """
+        Generate winner announcement text.
+
+        Returns:
+            String like "Winner: username1, username2 with 42 points!"
+        """
+        total_scores = self.player_total_scores()
+        if not total_scores:
+            return ""
+
+        min_total = min(total_scores.values())
+        winners = [
+            p.username for p, score in total_scores.items() if score == min_total
+        ]
+        return f"Winner: {', '.join(winners)} with {min_total} points!"
+
+    def rounds_display_data(self, round_numbers: list[int]) -> list[dict]:
+        """
+        Generate display data for all rounds.
+
+        Args:
+            round_numbers: List of round numbers (from DB) corresponding to each round
+
+        Returns:
+            List of dictionaries, one per round, containing:
+                - number: Round number
+                - displays: dict[str, str] - Display strings by username
+                - details: dict[str, str] - Detail text by username
+                - final_scores: dict[str, int] - Final scores by username
+        """
+        rounds_display = []
+        for i, round_obj in enumerate(self.rounds):
+            round_data = round_obj.display_data(self.players)
+            round_data["number"] = round_numbers[i] if i < len(round_numbers) else i + 1
+            rounds_display.append(round_data)
+        return rounds_display
 
     @classmethod
     def from_db(cls, game_db: "GameDB", session: Session) -> "Game":

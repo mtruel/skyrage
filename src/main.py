@@ -182,74 +182,15 @@ async def game_page(request: Request, game_id: int):
                 player_details.append({"username": username, "surname": None})
 
         # Build display data for completed rounds using domain model
-        rounds_display = []
-        for i, round_obj in enumerate(game.rounds):
-            round_db = game_db.rounds[i]  # Need DB object for round_number
-
-            # Get final scores from domain model
-            final_scores_domain = round_obj.final_scores()
-
-            # Convert Player keys to username strings for template
-            final_scores = {
-                p.username: score for p, score in final_scores_domain.items()
-            }
-            raw_scores = {
-                p.username: score for p, score in round_obj.player_raw_scores.items()
-            }
-
-            # Find the minimum raw score (for display logic)
-            min_score = min(raw_scores.values()) if raw_scores else None
-            # Find the minimum final score (after doubling)
-            min_final_score = min(final_scores.values()) if final_scores else None
-
-            displays = {}
-            details = {}
-
-            # Build display strings and details
-            for username in game_db.player_usernames:
-                if username in raw_scores:
-                    raw_score = raw_scores[username]
-                    finished_first = round_obj.round_ender.username == username
-                    is_lowest = raw_score == min_score
-                    final_score = final_scores[username]
-                    is_winner = final_score == min_final_score
-
-                    # Build display string (just the final score, aligned right)
-                    displays[username] = str(final_score)
-
-                    # Build detail display - show "winner", "finished first" text and raw score if doubled
-                    detail_parts = []
-                    if is_winner:
-                        detail_parts.append("winner")
-                    if finished_first:
-                        detail_parts.append("finished first")
-                    if finished_first and not is_lowest and raw_score > 0:
-                        detail_parts.append(f"[{raw_score} x2]")
-                    details[username] = " ".join(detail_parts) if detail_parts else ""
-
-            rounds_display.append(
-                {
-                    "number": round_db.round_number,
-                    "displays": displays,
-                    "details": details,
-                    "final_scores": final_scores,
-                }
-            )
+        round_numbers = [round_db.round_number for round_db in game_db.rounds]
+        rounds_display = game.rounds_display_data(round_numbers)
 
         # Current round data (empty for new round)
         current_round = {"scores": {}, "finished_first": None}
 
         # Check if game is finished
         game_ended = game_db.finished_at is not None
-        winner_text = ""
-        if game_ended:
-            # Use domain model to calculate winner
-            total_scores = game.player_total_scores()
-            total_scores_str = {p.username: score for p, score in total_scores.items()}
-
-            min_total = min(total_scores_str.values())
-            winners = [u for u, s in total_scores_str.items() if s == min_total]
-            winner_text = f"Winner: {', '.join(winners)} with {min_total} points!"
+        winner_text = game.winner_text() if game_ended else ""
 
         return templates.TemplateResponse(
             "game.html",

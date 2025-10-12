@@ -64,7 +64,7 @@
   - C) Add indexes on JSON fields (SQLite 3.38+)
 
 ### Template & Logic Separation
-- [ ] **Extract template calculation logic**: `main.game_page()` duplicates score calculation logic. Move to domain model or service layer
+- [x] **Extract template calculation logic**: ✅ **IMPLEMENTED** - `main.game_page()` now uses domain model display methods (`Round.display_data()`, `Game.rounds_display_data()`, `Game.winner_text()`) to generate template data. Display logic moved from handler to domain layer, reducing handler from ~110 lines to ~50 lines.
 - [ ] **Standardize HTMX responses**: Some endpoints return inline HTML strings, others use templates. Pick one approach
 
 ---
