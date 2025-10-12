@@ -26,30 +26,22 @@
         .player-table tr:hover {
             background: #f9f9f9;
         }
-        .edit-form {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        .edit-form input {
+        .surname-input {
+            width: 100%;
             margin: 0;
             padding: 0.5rem;
-            flex-grow: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
         }
-        .edit-form button {
-            margin: 0;
-            padding: 0.5rem 1rem;
-            white-space: nowrap;
+        .surname-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
         }
-        .surname-display {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        .surname-display button {
-            margin: 0;
-            padding: 0.3rem 0.6rem;
-            font-size: 0.9em;
+        .surname-input::placeholder {
+            color: #999;
+            font-style: italic;
         }
         .back-button {
             margin: 2rem 0 1rem 0;
@@ -163,12 +155,18 @@
                         {% for player in players %}
                         <tr id="player-row-{{ player.username }}">
                             <td><strong>{{ player.username }}</strong></td>
-                            <td id="surname-display-{{ player.username }}">
-                                <div class="surname-display">
-                                    <span class="{% if not player.surname %}surname-empty{% endif %}">
-                                        {{ player.surname or '(no surname)' }}
-                                    </span>
-                                </div>
+                            <td>
+                                <input 
+                                    type="text" 
+                                    class="surname-input"
+                                    name="surname"
+                                    value="{{ player.surname or '' }}"
+                                    placeholder="(no surname)"
+                                    hx-post="/player/update"
+                                    hx-trigger="change, blur"
+                                    hx-vals='{"username": "{{ player.username }}"}'
+                                    hx-swap="none"
+                                />
                             </td>
                             <td>
                                 <div class="player-actions">
@@ -178,12 +176,6 @@
                                         title="Delete player"
                                     >
                                         🗑️
-                                    </button>
-                                    <button 
-                                        class="secondary" 
-                                        onclick="showEditForm('{{ player.username }}', '{{ player.surname or '' }}')"
-                                    >
-                                        Edit
                                     </button>
                                 </div>
                                 <div id="error-{{ player.username }}" class="error-message"></div>
@@ -296,44 +288,6 @@
                     button.innerHTML = originalText;
                 }, 3000);
             }
-        }
-        
-        function showEditForm(username, currentSurname) {
-            const surnameCell = document.getElementById(`surname-display-${username}`);
-            
-            // Create edit form
-            surnameCell.innerHTML = `
-                <form class="edit-form" 
-                      hx-post="/player/update" 
-                      hx-target="#surname-display-${username}"
-                      hx-swap="innerHTML">
-                    <input type="hidden" name="username" value="${username}">
-                    <input type="text" 
-                           name="surname" 
-                           value="${currentSurname}" 
-                           placeholder="Enter surname"
-                           autofocus>
-                    <button type="submit">Save</button>
-                    <button type="button" 
-                            class="secondary" 
-                            onclick="cancelEdit('${username}', '${currentSurname}')">
-                        Cancel
-                    </button>
-                </form>
-            `;
-        }
-        
-        function cancelEdit(username, currentSurname) {
-            const surnameCell = document.getElementById(`surname-display-${username}`);
-            const isEmpty = !currentSurname;
-            const displayClass = isEmpty ? 'surname-empty' : '';
-            const displayText = currentSurname || '(no surname)';
-            
-            surnameCell.innerHTML = `
-                <div class="surname-display">
-                    <span class="${displayClass}">${displayText}</span>
-                </div>
-            `;
         }
     </script>
 </body>

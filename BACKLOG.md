@@ -46,10 +46,16 @@
   - **Benefits:** Eliminated score calculation duplication, centralized business logic in domain models, maintained existing template interface
   - **Status:** All 111 tests passing, linter/formatter/type checks green
   
-- [ ] **Username editing behavior** ⚠️ **NEEDS INPUT**: `update_player_name` in game only mutates game's username list, not PlayerDB primary key. This creates divergence. Options:
-  - A) Disallow username editing in games (only allow surname editing)
-  - B) Properly rename PlayerDB record (requires migration of all references)
-  - C) Document current behavior as intentional (game-local aliases)
+- [x] **Username editing behavior** ✅ **RESOLVED - Option A implemented**: Usernames are now immutable after creation
+  - **Problem:** `update_player_name` endpoint mutated game's username list but not PlayerDB primary key, creating divergence between game records and round data
+  - **Solution:** Removed `update_player_name` endpoint from `main.py` (was not used in UI)
+  - **Implementation:**
+    - Created new `PlayerUpdate` model in `api.py` that only accepts surname changes
+    - Updated `PUT /api/players/{username}` to use `PlayerUpdate` (rejects username changes)
+    - Added comprehensive test suite in `test_username_immutability.py` (5 tests)
+    - Usernames remain stable as primary keys; surnames can be edited for personalization
+  - **Benefits:** Maintains data integrity, prevents orphaned records, aligns with database best practices
+  - **Status:** All 116 tests passing, linter/formatter/type checks green
 
 ### Performance & Scalability
 - [ ] **JSON schema normalization** ⚠️ **NEEDS INPUT**: Player usernames and scores stored as JSON limits query-ability. Options:

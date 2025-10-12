@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from api import router as api_router
@@ -107,7 +107,7 @@ async def players_page(request: Request):
         session.close()
 
 
-@app.post("/player/update", response_class=HTMLResponse)
+@app.post("/player/update")
 async def update_player_surname(
     request: Request, username: str = Form(...), surname: str = Form(...)
 ):
@@ -122,16 +122,8 @@ async def update_player_surname(
         player.surname = surname.strip() if surname.strip() else None
         session.commit()
 
-        # Return the updated display HTML fragment for HTMX
-        is_empty = not player.surname
-        display_class = "surname-empty" if is_empty else ""
-        display_text = player.surname or "(no surname)"
-
-        return f"""
-            <div class="surname-display">
-                <span class="{display_class}">{display_text}</span>
-            </div>
-        """
+        # Return empty response - HTMX will just complete the request
+        return Response(status_code=200)
     finally:
         session.close()
 
@@ -272,43 +264,6 @@ async def game_page(request: Request, game_id: int):
                 "winner_text": winner_text,
             },
         )
-    finally:
-        session.close()
-
-
-@app.post("/game/{game_id}/update-player-name", response_class=HTMLResponse)
-async def update_player_name(
-    request: Request, game_id: int, player_idx: int = Form(...), name: str = Form(...)
-):
-    """Update a player's name."""
-    session = get_db_session()
-    try:
-        game = session.query(GameDB).filter_by(id=game_id).first()
-        if not game:
-            raise HTTPException(status_code=404, detail="Game not found")
-
-        if game.finished_at is not None:
-            raise HTTPException(status_code=400, detail="Cannot edit finished game")
-
-        if 0 <= player_idx < len(game.player_usernames):
-            player_usernames = game.player_usernames
-            old_username = player_usernames[player_idx]
-            new_username = name or f"Player {player_idx + 1}"
-
-            # Check if new username already exists in game
-            if new_username != old_username and new_username in player_usernames:
-                # Just redirect back without change
-                return await game_page(request, game_id)
-
-            player_usernames[player_idx] = new_username
-            game.player_usernames = player_usernames
-
-            # Create player record if doesn't exist
-            get_or_create_player(session, new_username, surname=None)
-
-            session.commit()
-
-        return await game_page(request, game_id)
     finally:
         session.close()
 

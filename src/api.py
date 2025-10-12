@@ -16,6 +16,12 @@ class PlayerCreate(BaseModel):
     surname: str | None = None
 
 
+class PlayerUpdate(BaseModel):
+    """Model for updating a player - only surname can be changed."""
+
+    surname: str | None = None
+
+
 class PlayerResponse(BaseModel):
     username: str
     surname: str | None = None
@@ -126,8 +132,8 @@ def get_player(username: str):
 
 
 @router.put("/players/{username}", response_model=PlayerResponse)
-def update_player(username: str, player_data: PlayerCreate):
-    """Update a player's surname."""
+def update_player(username: str, player_data: PlayerUpdate):
+    """Update a player's surname. Username cannot be changed."""
     session = get_db_session()
     try:
         player = session.query(PlayerDB).filter_by(username=username).first()
@@ -137,6 +143,7 @@ def update_player(username: str, player_data: PlayerCreate):
                 detail=f"Player with username '{username}' not found",
             )
 
+        # Only update surname - username is immutable (primary key)
         player.surname = player_data.surname
         session.commit()
         session.refresh(player)
