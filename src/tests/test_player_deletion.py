@@ -4,9 +4,43 @@ from typing import cast
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from api import delete_player
-from db import GameDB, PlayerDB, RoundDB, get_db_session
+from db import Base, GameDB, PlayerDB, RoundDB, get_db_session
+
+
+@pytest.fixture
+def test_engine():
+    """Create a test database engine with in-memory SQLite."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture
+def test_session_maker(test_engine):
+    """Create a session maker for tests."""
+    return sessionmaker(bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def mock_db_session(test_session_maker, monkeypatch):
+    """Mock get_db_session to use test database for all tests in this module."""
+
+    def mock_get_db_session():
+        return test_session_maker()
+
+    monkeypatch.setattr("api.get_db_session", mock_get_db_session)
+    monkeypatch.setattr(
+        "src.tests.test_player_deletion.get_db_session", mock_get_db_session
+    )
 
 
 class TestPlayerDeletion:
