@@ -26,16 +26,14 @@ class PlayerDB(Base):
 
     __tablename__ = "players"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    username: Mapped[str] = mapped_column(String(100), primary_key=True, nullable=False)
+    surname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
 
     def __repr__(self) -> str:
-        return f"<Player(id={self.id}, username='{self.username}', name='{self.first_name} {self.last_name}')>"
+        return f"<Player(username='{self.username}', surname='{self.surname}')>"
 
 
 class RoundDB(Base):
@@ -53,7 +51,9 @@ class RoundDB(Base):
     player_raw_scores_json: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Store round_ender username
-    round_ender_username: Mapped[str] = mapped_column(String(100), nullable=False)
+    round_ender_username: Mapped[str] = mapped_column(
+        String(100), ForeignKey("players.username"), nullable=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
@@ -61,6 +61,7 @@ class RoundDB(Base):
 
     # Relationships
     game: Mapped["GameDB"] = relationship("GameDB", back_populates="rounds")
+    round_ender: Mapped["PlayerDB"] = relationship("PlayerDB")
 
     @property
     def player_raw_scores(self) -> dict[str, int]:

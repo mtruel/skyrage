@@ -10,20 +10,19 @@ class TestPlayer:
 
     def test_player_creation(self):
         """Test creating a Player instance."""
-        player = Player(username="alice123", first_name="Alice", last_name="Johnson")
+        player = Player(username="alice123", surname="Johnson")
         assert player.username == "alice123"
-        assert player.first_name == "Alice"
-        assert player.last_name == "Johnson"
+        assert player.surname == "Johnson"
 
     def test_player_equality(self):
         """Test that Players with same data are equal."""
-        player1 = Player(username="alice", first_name="Alice", last_name="Johnson")
-        player2 = Player(username="alice", first_name="Alice", last_name="Johnson")
+        player1 = Player(username="alice", surname="Johnson")
+        player2 = Player(username="alice", surname="Johnson")
         assert player1 == player2
 
     def test_player_hashable(self):
         """Test that Players can be used as dict keys."""
-        player = Player(username="alice", first_name="Alice", last_name="Johnson")
+        player = Player(username="alice", surname="Johnson")
         scores = {player: 10}
         assert scores[player] == 10
 
@@ -35,11 +34,9 @@ class TestRound:
     def players(self):
         """Create test players."""
         return {
-            "alice": Player(username="alice", first_name="Alice", last_name="Johnson"),
-            "bob": Player(username="bob", first_name="Bob", last_name="Smith"),
-            "charlie": Player(
-                username="charlie", first_name="Charlie", last_name="Brown"
-            ),
+            "alice": Player(username="alice", surname="Johnson"),
+            "bob": Player(username="bob", surname="Smith"),
+            "charlie": Player(username="charlie", surname="Brown"),
         }
 
     def test_round_creation(self, players):
@@ -154,11 +151,9 @@ class TestGame:
     def players(self):
         """Create test players."""
         return {
-            "alice": Player(username="alice", first_name="Alice", last_name="Johnson"),
-            "bob": Player(username="bob", first_name="Bob", last_name="Smith"),
-            "charlie": Player(
-                username="charlie", first_name="Charlie", last_name="Brown"
-            ),
+            "alice": Player(username="alice", surname="Johnson"),
+            "bob": Player(username="bob", surname="Smith"),
+            "charlie": Player(username="charlie", surname="Brown"),
         }
 
     @pytest.fixture

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Game - SkyRage Scoreboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <style>
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin: 2rem 0;
+        }
+        
+        .player-btn {
+            padding: 1rem;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-size: 0.95em;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            position: relative;
+        }
+        
+        .player-btn:hover {
+            border-color: #999;
+            background: #f9f9f9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .player-btn.selected {
+            background: #4CAF50;
+            border-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .player-btn.selected:hover {
+            background: #45a049;
+            border-color: #45a049;
+        }
+        
+        .player-username {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .player-surname {
+            font-size: 0.85em;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .player-btn.selected .player-surname {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .selection-count {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 1rem 0;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .action-buttons button,
+        .action-buttons a {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .start-game-btn {
+            font-size: 1.2em;
+            padding: 1rem 2rem;
+        }
+        
+        .start-game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .no-players {
+            text-align: center;
+            padding: 3rem;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin: 2rem 0;
+        }
+        
+        .no-players p {
+            margin: 1rem 0;
+            color: #666;
+        }
+        
+        .helper-text {
+            text-align: center;
+            color: #666;
+            font-size: 0.95em;
+            margin: 1rem 0;
+        }
+        
+        .selection-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            color: #4CAF50;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .player-btn.selected .selection-indicator {
+            opacity: 1;
+        }
+        
+        .create-player-section {
+            background: #f0f9ff;
+            border: 2px dashed #4CAF50;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .create-player-section h3 {
+            margin: 0 0 1rem 0;
+            color: #4CAF50;
+            font-size: 1.1em;
+        }
+        
+        .create-player-form {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        
+        .create-player-form input {
+            flex: 1;
+            min-width: 150px;
+            margin: 0;
+            padding: 0.75rem;
+        }
+        
+        .create-player-form button {
+            margin: 0;
+            padding: 0.75rem 1.5rem;
+            white-space: nowrap;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            margin-top: 0.5rem;
+            font-size: 0.9em;
+            display: none;
+        }
+        
+        .success-message {
+            color: #4CAF50;
+            margin-top: 0.5rem;
+            font-size: 0.9em;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <h1>Start New Game</h1>
+            <p class="lead">Select players for your game</p>
+        </header>
+        
+        <div class="action-buttons">
+            <a href="/" role="button" class="secondary">← Cancel</a>
+            <button type="button" class="secondary" onclick="clearSelection()">Clear Selection</button>
+        </div>
+        
+        <div class="selection-count" id="selection-count">
+            No players selected
+        </div>
+        
+        <div class="helper-text">
+            Click on players to select them for the game. You need at least 2 players to start.
+        </div>
+        
+        <!-- Create New Player Section -->
+        <div class="create-player-section">
+            <h3>➕ Create New Player</h3>
+            <div class="create-player-form">
+                <input type="text" 
+                       id="new-username" 
+                       placeholder="Username (required)" 
+                       required>
+                <input type="text" 
+                       id="new-surname" 
+                       placeholder="Surname (optional)">
+                <button type="button" onclick="createNewPlayer()">Create Player</button>
+            </div>
+            <div id="create-error" class="error-message"></div>
+            <div id="create-success" class="success-message"></div>
+        </div>
+        
+        {% if players %}
+        <form id="new-game-form" action="/game/create" method="post">
+            <div class="player-grid">
+                {% for player in players %}
+                <div class="player-btn" 
+                     data-username="{{ player.username }}"
+                     onclick="togglePlayer(this)">
+                    <div class="selection-indicator">✓</div>
+                    <div class="player-username">{{ player.username }}</div>
+                    {% if player.surname %}
+                    <div class="player-surname">{{ player.surname }}</div>
+                    {% endif %}
+                    <input type="checkbox" 
+                           name="players" 
+                           value="{{ player.username }}" 
+                           style="display: none;">
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="action-buttons">
+                <button type="submit" 
+                        class="start-game-btn" 
+                        id="start-btn"
+                        disabled>
+                    🎮 Start Game
+                </button>
+            </div>
+        </form>
+        {% else %}
+        <div class="no-players">
+            <h3>No Players Found</h3>
+            <p>You don't have any players in your database yet.</p>
+            <p>Players are automatically created when you play games, or you can manage them manually.</p>
+            <a href="/players" role="button">Go to Player Management</a>
+        </div>
+        {% endif %}
+    </main>
+    
+    <script>
+        let selectedCount = 0;
+        
+        function togglePlayer(element) {
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            const wasSelected = element.classList.contains('selected');
+            
+            if (wasSelected) {
+                element.classList.remove('selected');
+                checkbox.checked = false;
+                selectedCount--;
+            } else {
+                element.classList.add('selected');
+                checkbox.checked = true;
+                selectedCount++;
+            }
+            
+            updateSelectionCount();
+        }
+        
+        function updateSelectionCount() {
+            const countElement = document.getElementById('selection-count');
+            const startBtn = document.getElementById('start-btn');
+            
+            if (selectedCount === 0) {
+                countElement.textContent = 'No players selected';
+                countElement.style.color = '#666';
+            } else if (selectedCount === 1) {
+                countElement.textContent = '1 player selected (need at least 2)';
+                countElement.style.color = '#FF9800';
+            } else {
+                countElement.textContent = `${selectedCount} players selected`;
+                countElement.style.color = '#4CAF50';
+            }
+            
+            // Enable/disable start button
+            if (startBtn) {
+                startBtn.disabled = selectedCount < 2;
+            }
+        }
+        
+        function clearSelection() {
+            document.querySelectorAll('.player-btn.selected').forEach(btn => {
+                btn.classList.remove('selected');
+                btn.querySelector('input[type="checkbox"]').checked = false;
+            });
+            selectedCount = 0;
+            updateSelectionCount();
+        }
+        
+        function createNewPlayer() {
+            const usernameInput = document.getElementById('new-username');
+            const surnameInput = document.getElementById('new-surname');
+            const errorDiv = document.getElementById('create-error');
+            const successDiv = document.getElementById('create-success');
+            
+            const username = usernameInput.value.trim();
+            const surname = surnameInput.value.trim();
+            
+            // Clear previous messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Validate
+            if (!username) {
+                errorDiv.textContent = 'Username is required';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('surname', surname);
+            
+            // Submit to backend
+            fetch('/player/create', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    successDiv.textContent = `Player "${username}" created successfully! Refreshing...`;
+                    successDiv.style.display = 'block';
+                    
+                    // Clear inputs
+                    usernameInput.value = '';
+                    surnameInput.value = '';
+                    
+                    // Reload page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    errorDiv.textContent = data.detail || 'Error creating player';
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = error.detail || 'Error creating player. They may already exist.';
+                errorDiv.style.display = 'block';
+            });
+        }
+        
+        // Initialize count on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSelectionCount();
+        });
+        
+        // Form validation
+        document.getElementById('new-game-form')?.addEventListener('submit', function(e) {
+            if (selectedCount < 2) {
+                e.preventDefault();
+                alert('Please select at least 2 players to start a game.');
+            }
+        });
+    </script>
+</body>
+
+</html>

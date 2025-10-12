@@ -10,16 +10,18 @@ class Player(BaseModel):
     model_config = ConfigDict(from_attributes=True, frozen=True)
 
     username: str
-    first_name: str
-    last_name: str
+    surname: str | None = None
+
+    def __hash__(self) -> int:
+        """Make Player hashable for use as dict keys."""
+        return hash(self.username)
 
     @classmethod
     def from_db(cls, player_db: "PlayerDB") -> "Player":
         """Create a Player from a database model."""
         return cls(
             username=player_db.username,
-            first_name=player_db.first_name,
-            last_name=player_db.last_name,
+            surname=player_db.surname,
         )
 
 

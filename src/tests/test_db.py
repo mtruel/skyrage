@@ -30,7 +30,7 @@ class TestPlayerDB:
 
     def test_create_player(self, test_db):
         """Test creating a player in the database."""
-        player = PlayerDB(username="alice123", first_name="Alice", last_name="Johnson")
+        player = PlayerDB(username="alice123", surname="Johnson")
         test_db.add(player)
         test_db.commit()
 
@@ -38,17 +38,16 @@ class TestPlayerDB:
         retrieved = test_db.query(PlayerDB).filter_by(username="alice123").first()
         assert retrieved is not None
         assert retrieved.username == "alice123"
-        assert retrieved.first_name == "Alice"
-        assert retrieved.last_name == "Johnson"
+        assert retrieved.surname == "Johnson"
 
     def test_player_unique_username(self, test_db):
         """Test that username must be unique."""
-        player1 = PlayerDB(username="bob", first_name="Bob", last_name="Smith")
+        player1 = PlayerDB(username="bob", surname="Smith")
         test_db.add(player1)
         test_db.commit()
 
         # Try to add another player with same username
-        player2 = PlayerDB(username="bob", first_name="Robert", last_name="Jones")
+        player2 = PlayerDB(username="bob", surname="Jones")
         test_db.add(player2)
 
         with pytest.raises(Exception):  # Will raise IntegrityError
@@ -57,9 +56,9 @@ class TestPlayerDB:
     def test_query_all_players(self, test_db):
         """Test querying all players."""
         players = [
-            PlayerDB(username="alice", first_name="Alice", last_name="Johnson"),
-            PlayerDB(username="bob", first_name="Bob", last_name="Smith"),
-            PlayerDB(username="charlie", first_name="Charlie", last_name="Brown"),
+            PlayerDB(username="alice", surname="Johnson"),
+            PlayerDB(username="bob", surname="Smith"),
+            PlayerDB(username="charlie", surname="Brown"),
         ]
         for player in players:
             test_db.add(player)

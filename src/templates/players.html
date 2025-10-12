@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Players - SkyRage Scoreboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <style>
+        .player-table {
+            margin: 2rem 0;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .player-table th {
+            text-align: left;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+        .player-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        .player-table tr:hover {
+            background: #f9f9f9;
+        }
+        .edit-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .edit-form input {
+            margin: 0;
+            padding: 0.5rem;
+            flex-grow: 1;
+        }
+        .edit-form button {
+            margin: 0;
+            padding: 0.5rem 1rem;
+            white-space: nowrap;
+        }
+        .surname-display {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .surname-display button {
+            margin: 0;
+            padding: 0.3rem 0.6rem;
+            font-size: 0.9em;
+        }
+        .back-button {
+            margin: 2rem 0 1rem 0;
+        }
+        .no-players {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        .surname-empty {
+            color: #999;
+            font-style: italic;
+        }
+        .delete-btn {
+            background: transparent;
+            border: 1px solid #999;
+            color: #666;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+        }
+        .delete-btn:hover {
+            background: #f0f0f0;
+            border-color: #666;
+        }
+        .delete-btn.confirm-delete {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        .delete-btn.confirm-delete:hover {
+            background: #c82333;
+            border-color: #bd2130;
+        }
+        .player-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container">
+        <header>
+            <h1>Players</h1>
+            <p class="lead">View and edit all recorded players.</p>
+        </header>
+        
+        <div class="back-button">
+            <a href="/" role="button" class="secondary">← Back to Home</a>
+        </div>
+        
+        <section aria-labelledby="players-section">
+            <h2 id="players-section">All Players</h2>
+            {% if players %}
+                <table class="player-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Surname</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in players %}
+                        <tr id="player-row-{{ player.username }}">
+                            <td><strong>{{ player.username }}</strong></td>
+                            <td id="surname-display-{{ player.username }}">
+                                <div class="surname-display">
+                                    <span class="{% if not player.surname %}surname-empty{% endif %}">
+                                        {{ player.surname or '(no surname)' }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="player-actions">
+                                    <button 
+                                        class="delete-btn" 
+                                        onclick="handlePlayerDeleteClick(this, '{{ player.username }}')" 
+                                        title="Delete player"
+                                    >
+                                        🗑️
+                                    </button>
+                                    <button 
+                                        class="secondary" 
+                                        onclick="showEditForm('{{ player.username }}', '{{ player.surname or '' }}')"
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
+                                <div id="error-{{ player.username }}" class="error-message"></div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-players">
+                    <p>No players recorded yet. Players are automatically created when you start games.</p>
+                </div>
+            {% endif %}
+        </section>
+    </main>
+    
+    <script>
+        function handlePlayerDeleteClick(button, username) {
+            const errorDiv = document.getElementById(`error-${username}`);
+            
+            if (button.classList.contains('confirm-delete')) {
+                // Second click - delete the player
+                errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
+                
+                fetch(`/api/players/${username}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Remove the player row from the DOM
+                        document.getElementById(`player-row-${username}`).remove();
+                    } else if (response.status === 400) {
+                        // Player has linked games - show error
+                        return response.json().then(data => {
+                            errorDiv.textContent = data.detail || 'Cannot delete player with game history.';
+                            errorDiv.style.display = 'block';
+                            button.classList.remove('confirm-delete');
+                            button.innerHTML = '🗑️';
+                        });
+                    } else {
+                        throw new Error('Failed to delete player');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting player:', error);
+                    errorDiv.textContent = 'An error occurred while deleting the player.';
+                    errorDiv.style.display = 'block';
+                    button.classList.remove('confirm-delete');
+                    button.innerHTML = '🗑️';
+                });
+            } else {
+                // First click - enter confirmation mode
+                errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
+                button.classList.add('confirm-delete');
+                const originalText = button.innerHTML;
+                button.innerHTML = '🗑️';
+                
+                // Reset after 3 seconds
+                setTimeout(() => {
+                    button.classList.remove('confirm-delete');
+                    button.innerHTML = originalText;
+                }, 3000);
+            }
+        }
+        
+        function showEditForm(username, currentSurname) {
+            const surnameCell = document.getElementById(`surname-display-${username}`);
+            
+            // Create edit form
+            surnameCell.innerHTML = `
+                <form class="edit-form" 
+                      hx-post="/player/update" 
+                      hx-target="#surname-display-${username}"
+                      hx-swap="innerHTML">
+                    <input type="hidden" name="username" value="${username}">
+                    <input type="text" 
+                           name="surname" 
+                           value="${currentSurname}" 
+                           placeholder="Enter surname"
+                           autofocus>
+                    <button type="submit">Save</button>
+                    <button type="button" 
+                            class="secondary" 
+                            onclick="cancelEdit('${username}', '${currentSurname}')">
+                        Cancel
+                    </button>
+                </form>
+            `;
+        }
+        
+        function cancelEdit(username, currentSurname) {
+            const surnameCell = document.getElementById(`surname-display-${username}`);
+            const isEmpty = !currentSurname;
+            const displayClass = isEmpty ? 'surname-empty' : '';
+            const displayText = currentSurname || '(no surname)';
+            
+            surnameCell.innerHTML = `
+                <div class="surname-display">
+                    <span class="${displayClass}">${displayText}</span>
+                </div>
+            `;
+        }
+    </script>
+</body>
+
+</html>
