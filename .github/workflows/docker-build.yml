@@ -2,7 +2,11 @@ name: Build and publish Docker image
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, dev ]
 
 jobs:
   build:
@@ -11,10 +15,16 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      pull-requests: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -29,13 +39,55 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine tags
+        id: tags
+        run: |
+          # Use Python to extract version from pyproject.toml
+          VERSION=$(python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          data = tomllib.loads(Path("pyproject.toml").read_text())
+          print(data["project"]["version"])
+          PY
+          )
+          
+          if [ -z "$VERSION" ]; then
+            echo "VERSION not found in pyproject.toml" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Determine tags based on event type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs: tag as pr-<number>
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/skyrage:pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "PUSH=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            # For tags: use the tag name (e.g., v1.0.0) and version from pyproject
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/skyrage:${TAG_NAME},ghcr.io/${{ github.repository_owner }}/skyrage:${VERSION}" >> $GITHUB_OUTPUT
+            echo "PUSH=true" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF#refs/heads/}" = "dev" ]; then
+            # For dev branch: tag as dev
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/skyrage:dev" >> $GITHUB_OUTPUT
+            echo "PUSH=true" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF#refs/heads/}" = "main" ]; then
+            # For main branch: tag with version, latest, and sha
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/skyrage:${VERSION},ghcr.io/${{ github.repository_owner }}/skyrage:latest,ghcr.io/${{ github.repository_owner }}/skyrage:${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "PUSH=true" >> $GITHUB_OUTPUT
+          else
+            # For other branches: tag with sha only
+            echo "TAGS=ghcr.io/${{ github.repository_owner }}/skyrage:${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "PUSH=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/skyrage:latest
-            ghcr.io/${{ github.repository_owner }}/skyrage:${{ github.sha }}
+          push: ${{ steps.tags.outputs.PUSH }}
+          tags: ${{ steps.tags.outputs.TAGS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -14,3 +14,5 @@ wheels/
 
 # Docker volumes
 data/
+
+.pytest_cache/
