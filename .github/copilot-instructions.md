@@ -35,6 +35,7 @@
 
 ## Mandatory
 - At the end of every task, run the formater, linter and tests. 
+- Read the skyjo_rules.md file before working.
 
 ## Conventions visible in this repo
 - Source code lives under `src/`. Keep new modules there (e.g., `src/api.py`, `src/db.py`) and import relatively within `src`.

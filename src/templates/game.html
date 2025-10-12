@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyjo Game - Score Tracker</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        table, th, td {
+            border: none;
+        }
+        
+        th, td {
+            padding: 8px;
+            text-align: center;
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+        }
+        
+        th {
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            vertical-align: middle;
+        }
+        
+        .player-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 50px;
+            padding: 0.5rem;
+        }
+        
+        .player-surname {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.15rem;
+        }
+        
+        .player-username-small {
+            font-size: 0.75em;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .player-username-big {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        /* Remove borders from most rows */
+        tbody tr {
+            border: none;
+        }
+        
+        .round-header {
+            background-color: #e8e8e8;
+            font-weight: bold;
+        }
+        
+        .round-header td {
+            border-bottom: none !important;
+            border-top: none !important;
+        }
+        
+        /* Cumulative row styling */
+        .cumulative-row {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        
+        .cumulative-row td {
+            border-top: none !important;
+            padding-bottom: 20px;
+        }
+        
+        /* Add top border to round headers that come after a cumulative row (not the first round) */
+        .cumulative-row + .round-header td {
+            border-top: 1px solid #000 !important;
+            padding-top: 20px;
+        }
+        
+        /* Score alignment */
+        .score-cell {
+            text-align: right;
+            padding-right: 15px;
+            position: relative;
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+        }
+        
+        .finished-first-marker {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            white-space: nowrap;
+        }
+        
+        .doubled-marker {
+            font-size: 10px;
+            color: #999;
+            margin-left: 5px;
+        }
+        
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        /* Remove spinner buttons from number inputs */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        
+        /* Style for score inputs to blend in */
+        .score-input {
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            font-size: 14px;
+            padding: 4px 6px;
+            width: 80px !important;
+            min-width: 80px;
+            max-width: 80px;
+            box-sizing: border-box;
+        }
+        
+        .score-input:focus {
+            outline: none;
+            border-color: #999;
+            background-color: #fff;
+        }
+        
+        /* Finished first styling */
+        .finished-first-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+            box-sizing: border-box;
+        }
+        
+        .finished-first-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #666;
+            cursor: pointer;
+            width: 100%;
+            min-height: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .finished-first-text {
+            margin-left: 5px;
+            font-style: italic;
+            white-space: nowrap;
+        }
+        
+        input[type="text"]:disabled, input[type="number"]:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .round-header {
+            background-color: #e8e8e8;
+            font-weight: bold;
+        }
+        
+        .cumulative-row {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        
+        .input-row {
+            background-color: #fff;
+        }
+        
+        .winner-display {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 24px;
+            border-radius: 5px;
+        }
+        
+        h1 {
+            text-align: center;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background-color: #f44336;
+            color: white;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        
+        .modal-close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 28px;
+        }
+        
+        .modal-close:hover {
+            color: #000;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .modal-player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+        }
+        
+        .modal-player-btn {
+            padding: 1rem;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            min-height: 70px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-player-btn:hover {
+            border-color: #4CAF50;
+            background: #f0f9f0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .modal-player-btn .player-username {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .modal-player-btn .player-surname {
+            font-size: 0.85em;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .modal-create-section {
+            background: #f0f9ff;
+            border: 2px dashed #4CAF50;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-create-section h3 {
+            margin: 0 0 0.75rem 0;
+            color: #4CAF50;
+            font-size: 1em;
+        }
+        
+        .modal-create-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .modal-create-form input {
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        
+        .modal-create-form button {
+            padding: 0.6rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+        
+        .modal-create-form button:hover {
+            background: #45a049;
+        }
+        
+        .modal-message {
+            margin-top: 0.5rem;
+            font-size: 0.85em;
+            display: none;
+        }
+        
+        .modal-error {
+            color: #dc3545;
+        }
+        
+        .modal-success {
+            color: #4CAF50;
+        }
+    </style>
+    <script>
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            // Scroll to error message
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function collectScoresAndSubmit(gameId) {
+            const form = document.getElementById('save-round-form');
+            const inputs = document.querySelectorAll('.score-input');
+            const finishedCheckboxes = document.querySelectorAll('.finished-first-checkbox');
+            
+            // Validate that all scores are entered
+            let hasEmptyScore = false;
+            let hasInvalidScore = false;
+            let invalidMessage = '';
+            
+            inputs.forEach((input, idx) => {
+                const value = input.value.trim();
+                if (value === '') {
+                    hasEmptyScore = true;
+                } else {
+                    // Check if it's a valid number
+                    const numValue = parseFloat(value);
+                    if (isNaN(numValue)) {
+                        hasInvalidScore = true;
+                        invalidMessage = `Invalid score for player ${idx + 1}: "${value}" is not a number`;
+                    } else if (!Number.isInteger(numValue)) {
+                        hasInvalidScore = true;
+                        invalidMessage = `Invalid score for player ${idx + 1}: "${value}" must be a whole number`;
+                    } else if (numValue < -15 || numValue > 120) {
+                        hasInvalidScore = true;
+                        invalidMessage = `Invalid score for player ${idx + 1}: ${numValue} is outside the valid range (-15 to 120)`;
+                    }
+                }
+            });
+            
+            if (hasInvalidScore) {
+                showError(invalidMessage);
+                return false;
+            }
+            
+            if (hasEmptyScore) {
+                showError('Please enter scores for all players before saving the round.');
+                return false;
+            }
+            
+            // Clear existing hidden inputs
+            const existingHidden = form.querySelectorAll('input[type="hidden"]');
+            existingHidden.forEach(input => {
+                if (input.name.startsWith('score_') || input.name === 'finished_first') {
+                    input.remove();
+                }
+            });
+            
+            // Add score values
+            inputs.forEach((input, idx) => {
+                if (input.value && input.value.trim() !== '') {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = `score_${idx}`;
+                    hiddenInput.value = input.value;
+                    form.appendChild(hiddenInput);
+                }
+            });
+            
+            // Add finished_first value
+            finishedCheckboxes.forEach((checkbox, idx) => {
+                if (checkbox.checked) {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'finished_first';
+                    hiddenInput.value = idx;
+                    form.appendChild(hiddenInput);
+                }
+            });
+            
+            return true;
+        }
+        
+        // Ensure only one checkbox can be checked at a time
+        function handleFinishedFirstChange(checkbox) {
+            if (checkbox.checked) {
+                // Uncheck all other checkboxes
+                document.querySelectorAll('.finished-first-checkbox').forEach(cb => {
+                    if (cb !== checkbox) {
+                        cb.checked = false;
+                        // Hide text for unchecked boxes
+                        const textSpan = cb.parentElement.querySelector('.finished-first-text');
+                        if (textSpan) textSpan.style.display = 'none';
+                    }
+                });
+                // Show text for checked box
+                const textSpan = checkbox.parentElement.querySelector('.finished-first-text');
+                if (textSpan) textSpan.style.display = 'inline';
+            } else {
+                // Hide text when unchecked
+                const textSpan = checkbox.parentElement.querySelector('.finished-first-text');
+                if (textSpan) textSpan.style.display = 'none';
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.finished-first-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    handleFinishedFirstChange(this);
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+    <a href="/" class="back-link">← Back to Games List</a>
+    <h1>Skyjo Game - Score Tracker</h1>
+    
+    <div id="game-content">
+        {% include 'partials/game_content.html' %}
+    </div>
+    
+    <!-- Add Player Modal -->
+    <div id="addPlayerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Player to Game</h2>
+                <button class="modal-close" onclick="closeAddPlayerModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Create New Player Section -->
+                <div class="modal-create-section">
+                    <h3>➕ Create New Player</h3>
+                    <div class="modal-create-form">
+                        <input type="text" 
+                               id="modal-new-username" 
+                               placeholder="Username (required)">
+                        <input type="text" 
+                               id="modal-new-surname" 
+                               placeholder="Surname (optional)">
+                        <button type="button" onclick="createPlayerInModal()">Create Player</button>
+                    </div>
+                    <div id="modal-create-error" class="modal-message modal-error"></div>
+                    <div id="modal-create-success" class="modal-message modal-success"></div>
+                </div>
+                
+                <div style="border-bottom: 1px solid #ddd; margin-bottom: 1rem;"></div>
+                
+                <div id="modal-player-list" class="modal-player-grid">
+                    <!-- Players will be loaded here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Store current game ID for modal operations
+        let currentGameId = null;
+        
+        function openAddPlayerModal(gameId) {
+            currentGameId = gameId; // Store for later use
+            const modal = document.getElementById('addPlayerModal');
+            const playerList = document.getElementById('modal-player-list');
+            
+            // Show loading state
+            playerList.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading players...</div>';
+            modal.style.display = 'block';
+            
+            // Fetch available players
+            fetch(`/game/${gameId}/available-players`)
+                .then(response => response.text())
+                .then(html => {
+                    playerList.innerHTML = html;
+                })
+                .catch(error => {
+                    playerList.innerHTML = '<div style="text-align: center; padding: 2rem; color: red;">Error loading players</div>';
+                    console.error('Error fetching players:', error);
+                });
+        }
+        
+        function closeAddPlayerModal() {
+            const modal = document.getElementById('addPlayerModal');
+            modal.style.display = 'none';
+        }
+        
+        function selectPlayerForGame(username, gameId) {
+            // Close the modal immediately for better UX
+            closeAddPlayerModal();
+            
+            // Create form data and submit via fetch
+            const formData = new FormData();
+            formData.append('username', username);
+            
+            fetch(`/game/${gameId}/add-player`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Update the game content with the returned HTML
+                const gameContent = document.getElementById('game-content');
+                if (gameContent) {
+                    gameContent.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Error adding player:', error);
+                const errorMsg = error.detail || error.message || 'Error adding player to game';
+                showError(errorMsg);
+            });
+        }
+        
+        function createPlayerInModal() {
+            const usernameInput = document.getElementById('modal-new-username');
+            const surnameInput = document.getElementById('modal-new-surname');
+            const errorDiv = document.getElementById('modal-create-error');
+            const successDiv = document.getElementById('modal-create-success');
+            
+            const username = usernameInput.value.trim();
+            const surname = surnameInput.value.trim();
+            
+            // Clear previous messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Validate
+            if (!username) {
+                errorDiv.textContent = 'Username is required';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('surname', surname);
+            
+            // Submit to backend
+            fetch('/player/create', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                // Check if response is ok before parsing
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Success case
+                successDiv.textContent = `Player "${username}" created! Refreshing list...`;
+                successDiv.style.display = 'block';
+                
+                // Clear inputs
+                usernameInput.value = '';
+                surnameInput.value = '';
+                
+                // Reload the player list after a short delay
+                setTimeout(() => {
+                    // Get the game ID from the modal context
+                    const gameId = currentGameId;
+                    if (gameId) {
+                        const playerList = document.getElementById('modal-player-list');
+                        playerList.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading players...</div>';
+                        
+                        fetch(`/game/${gameId}/available-players`)
+                            .then(response => response.text())
+                            .then(html => {
+                                playerList.innerHTML = html;
+                                successDiv.style.display = 'none';
+                            })
+                            .catch(error => {
+                                console.error('Error reloading players:', error);
+                                errorDiv.textContent = 'Error loading players';
+                                errorDiv.style.display = 'block';
+                            });
+                    } else {
+                        console.error('No game ID available for refresh');
+                        errorDiv.textContent = 'Error: No game ID available';
+                        errorDiv.style.display = 'block';
+                    }
+                }, 1000);
+            })
+            .catch(error => {
+                // Error case - handle both network errors and HTTP errors
+                const message = error.detail || error.message || 'Error creating player';
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                console.error('Error creating player:', error);
+            });
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('addPlayerModal');
+            if (event.target === modal) {
+                closeAddPlayerModal();
+            }
+        }
+    </script>
+</body>
+</html>

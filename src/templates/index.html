@@ -6,7 +6,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SkyRage Scoreboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
-    <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script src="/static/delete-confirmation.js" defer></script>
+    <style>
+        .game-list {
+            margin: 2rem 0;
+        }
+        .game-card {
+            border: 1px solid #ddd;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            background: #f9f9f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .game-card:hover {
+            background: #f0f0f0;
+        }
+        .game-info {
+            flex-grow: 1;
+        }
+        .game-status {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .game-status.finished {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .game-status.in-progress {
+            color: #FF9800;
+            font-weight: bold;
+        }
+        .game-players {
+            font-size: 0.9em;
+            color: #333;
+            margin: 0.25rem 0;
+        }
+        .game-date {
+            font-size: 0.8em;
+            color: #999;
+        }
+        .new-game-button {
+            margin: 2rem 0;
+            text-align: center;
+        }
+        .game-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .delete-btn {
+            background: transparent;
+            border: 1px solid #999;
+            color: #666;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+        }
+        .delete-btn:hover {
+            background: #f0f0f0;
+            border-color: #666;
+        }
+        .delete-btn.confirm-delete {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        .delete-btn.confirm-delete:hover {
+            background: #c82333;
+            border-color: #bd2130;
+        }
+    </style>
 </head>
 
 <body>
@@ -15,13 +90,58 @@
             <h1>SkyRage Scoreboard</h1>
             <p class="lead">Track your Skyjo games with real-time updates.</p>
         </header>
-        <section aria-labelledby="getting-started">
-            <h2 id="getting-started">Getting started</h2>
-            <p>
-                This page is powered by FastAPI and HTMX. Replace this placeholder
-                content with dynamic score tables and in-game actions as the project
-                evolves.
-            </p>
+        
+        <div class="new-game-button">
+            <a href="/game/new" role="button" style="font-size: 1.2em; padding: 1rem 2rem; display: inline-block; margin-right: 1rem;">
+                🎮 Start New Game
+            </a>
+            <a href="/players" role="button" class="secondary" style="font-size: 1.2em; padding: 1rem 2rem;">
+                👥 Manage Players
+            </a>
+        </div>
+        
+        <section aria-labelledby="recent-games">
+            <h2 id="recent-games">Recent Games</h2>
+            <div class="game-list">
+                {% if games %}
+                    {% for game in games %}
+                    <div class="game-card">
+                        <div class="game-info">
+                            <div class="game-players">
+                                <strong>Players:</strong> {{ game.player_usernames|join(', ') }}
+                            </div>
+                            <div class="game-date">
+                                {{ game.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="game-status {% if game.finished_at %}finished{% else %}in-progress{% endif %}">
+                                {% if game.finished_at %}
+                                    ✓ Finished - {{ game.rounds|length }} rounds
+                                {% else %}
+                                    ⏳ In Progress - {{ game.rounds|length }} rounds
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="game-actions">
+                            <button 
+                                id="delete-game-{{ game.id }}"
+                                class="delete-btn confirm-delete-htmx" 
+                                hx-delete="/game/{{ game.id }}"
+                                hx-target="closest .game-card"
+                                hx-swap="outerHTML swap:0s"
+                                title="Delete game"
+                            >
+                                🗑️
+                            </button>
+                            <a href="/game/{{ game.id }}" role="button">
+                                {% if game.finished_at %}View{% else %}Continue{% endif %}
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No games yet. Start your first game above!</p>
+                {% endif %}
+            </div>
         </section>
     </main>
 </body>

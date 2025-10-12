@@ -1,14 +1,432 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from api import router as api_router
+from db import GameDB, PlayerDB, get_db_session, get_or_create_player, init_db
+from model import Game
+
 app = FastAPI()
+
+# Initialize database
+init_db()
+
+# Include API routes
+app.include_router(api_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=Path("src/templates/static")), name="static")
 
 templates = Jinja2Templates(directory=Path("src/templates"))
 
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Landing page with list of games."""
+    session = get_db_session()
+    try:
+        games = session.query(GameDB).order_by(GameDB.created_at.desc()).limit(20).all()
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "games": games},
+        )
+    finally:
+        session.close()
+
+
+@app.get("/game/new", response_class=HTMLResponse)
+async def new_game_page(request: Request):
+    """Display player selection page for creating a new game."""
+    session = get_db_session()
+    try:
+        players = session.query(PlayerDB).order_by(PlayerDB.username).all()
+        return templates.TemplateResponse(
+            "new_game.html",
+            {"request": request, "players": players},
+        )
+    finally:
+        session.close()
+
+
+@app.post("/game/create")
+async def create_new_game(request: Request, players: list[str] = Form(...)):
+    """Create a new game with selected players and redirect to game page."""
+    session = get_db_session()
+    try:
+        # Validate we have at least 2 players
+        if not players or len(players) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 players are required to start a game",
+            )
+
+        # Create game with selected players
+        game = GameDB(player_usernames=players)
+        session.add(game)
+        session.commit()
+        session.refresh(game)
+
+        # Auto-create player records if they don't exist (shouldn't happen since we're selecting from existing)
+        for username in game.player_usernames:
+            get_or_create_player(session, username, surname=None)
+        session.commit()
+
+        # Redirect to the newly created game page
+        return RedirectResponse(url=f"/game/{game.id}", status_code=303)
+    finally:
+        session.close()
+
+
+@app.delete("/game/{game_id}", status_code=204)
+async def delete_game(game_id: int):
+    """Delete a game and all its associated rounds."""
+    session = get_db_session()
+    try:
+        game = session.query(GameDB).filter_by(id=game_id).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        session.delete(game)
+        session.commit()
+
+        return Response(status_code=204)
+    finally:
+        session.close()
+
+
+@app.get("/players", response_class=HTMLResponse)
+async def players_page(request: Request):
+    """Display all players with their usernames and surnames."""
+    session = get_db_session()
+    try:
+        players = session.query(PlayerDB).order_by(PlayerDB.username).all()
+        return templates.TemplateResponse(
+            "players.html",
+            {"request": request, "players": players},
+        )
+    finally:
+        session.close()
+
+
+@app.post("/player/update")
+async def update_player_surname(
+    request: Request, username: str = Form(...), surname: str = Form(...)
+):
+    """Update a player's surname via HTMX."""
+    session = get_db_session()
+    try:
+        player = session.query(PlayerDB).filter_by(username=username).first()
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+        # Update surname (allow empty string to clear it)
+        player.surname = surname.strip() if surname.strip() else None
+        session.commit()
+
+        # Return empty response - HTMX will just complete the request
+        return Response(status_code=200)
+    finally:
+        session.close()
+
+
+@app.post("/player/create")
+async def create_player(
+    request: Request, username: str = Form(...), surname: str = Form("")
+):
+    """Create a new player."""
+    session = get_db_session()
+    try:
+        # Validate username
+        if not username or not username.strip():
+            raise HTTPException(status_code=400, detail="Username is required")
+
+        username = username.strip()
+        surname_value: str | None = surname.strip() if surname.strip() else None
+
+        # Try to create player (raises error if exists)
+        player, created = get_or_create_player(session, username, surname_value)
+
+        if not created:
+            raise HTTPException(
+                status_code=400, detail=f"Player '{username}' already exists"
+            )
+
+        session.commit()
+
+        return {"success": True, "username": username, "surname": player.surname}
+    finally:
+        session.close()
+
+
+@app.get("/game/{game_id}", response_class=HTMLResponse)
+async def game_page(request: Request, game_id: int):
+    """Main game page."""
+    session = get_db_session()
+    try:
+        game_db = session.query(GameDB).filter_by(id=game_id).first()
+        if not game_db:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        # Convert to domain model
+        game = Game.from_db(game_db, session)
+
+        # Fetch player details (username and surname) for all players in the game
+        player_details = []
+        for username in game_db.player_usernames:
+            player = session.query(PlayerDB).filter_by(username=username).first()
+            if player:
+                player_details.append(
+                    {"username": player.username, "surname": player.surname}
+                )
+            else:
+                # Fallback if player not found in DB
+                player_details.append({"username": username, "surname": None})
+
+        # Build display data for completed rounds using domain model
+        round_numbers = [round_db.round_number for round_db in game_db.rounds]
+        rounds_display = game.rounds_display_data(round_numbers)
+
+        # Current round data (empty for new round)
+        current_round = {"scores": {}, "finished_first": None}
+
+        # Check if game is finished
+        game_ended = game_db.finished_at is not None
+        winner_text = game.winner_text() if game_ended else ""
+
+        return templates.TemplateResponse(
+            "game.html",
+            {
+                "request": request,
+                "game_id": game_id,
+                "players": game_db.player_usernames,
+                "player_details": player_details,
+                "rounds": rounds_display,
+                "current_round": current_round,
+                "game_ended": game_ended,
+                "winner_text": winner_text,
+            },
+        )
+    finally:
+        session.close()
+
+
+def _render_game_content(request: Request, game_id: int, session):
+    """Helper function to render game content partial (for HTMX updates)."""
+    game_db = session.query(GameDB).filter_by(id=game_id).first()
+    if not game_db:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Convert to domain model
+    game = Game.from_db(game_db, session)
+
+    # Fetch player details (username and surname) for all players in the game
+    player_details = []
+    for username in game_db.player_usernames:
+        player = session.query(PlayerDB).filter_by(username=username).first()
+        if player:
+            player_details.append(
+                {"username": player.username, "surname": player.surname}
+            )
+        else:
+            # Fallback if player not found in DB
+            player_details.append({"username": username, "surname": None})
+
+    # Build display data for completed rounds using domain model
+    round_numbers = [round_db.round_number for round_db in game_db.rounds]
+    rounds_display = game.rounds_display_data(round_numbers)
+
+    # Current round data (empty for new round)
+    current_round = {"scores": {}, "finished_first": None}
+
+    # Check if game is finished
+    game_ended = game_db.finished_at is not None
+    winner_text = game.winner_text() if game_ended else ""
+
+    return templates.TemplateResponse(
+        "partials/game_content.html",
+        {
+            "request": request,
+            "game_id": game_id,
+            "players": game_db.player_usernames,
+            "player_details": player_details,
+            "rounds": rounds_display,
+            "current_round": current_round,
+            "game_ended": game_ended,
+            "winner_text": winner_text,
+        },
+    )
+
+
+@app.get("/game/{game_id}/available-players", response_class=HTMLResponse)
+async def get_available_players(request: Request, game_id: int):
+    """Get list of available players (not already in the game) for modal selection."""
+    session = get_db_session()
+    try:
+        game = session.query(GameDB).filter_by(id=game_id).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        # Get all players from database
+        all_players = session.query(PlayerDB).order_by(PlayerDB.username).all()
+
+        # Filter out players already in the game
+        available_players = [
+            p for p in all_players if p.username not in game.player_usernames
+        ]
+
+        # Return HTML fragment using template
+        return templates.TemplateResponse(
+            "partials/available_players.html",
+            {
+                "request": request,
+                "available_players": available_players,
+                "game_id": game_id,
+            },
+        )
+    finally:
+        session.close()
+
+
+@app.post("/game/{game_id}/add-player", response_class=HTMLResponse)
+async def add_player(request: Request, game_id: int, username: str = Form(None)):
+    """Add a player to the game by username."""
+    session = get_db_session()
+    try:
+        game = session.query(GameDB).filter_by(id=game_id).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        if game.finished_at is not None:
+            raise HTTPException(status_code=400, detail="Cannot edit finished game")
+
+        # If username is provided, use it; otherwise generate a default name
+        if username:
+            # Check if player already in game
+            if username in game.player_usernames:
+                raise HTTPException(
+                    status_code=400, detail="Player already in this game"
+                )
+            new_username = username
+        else:
+            # Fallback to old behavior for backward compatibility
+            player_num = len(game.player_usernames) + 1
+            new_username = f"Player {player_num}"
+
+        player_usernames = game.player_usernames
+        player_usernames.append(new_username)
+        game.player_usernames = player_usernames
+
+        # Create player record if doesn't exist
+        get_or_create_player(session, new_username, surname=None)
+
+        session.commit()
+
+        return _render_game_content(request, game_id, session)
+    finally:
+        session.close()
+
+
+@app.post("/game/{game_id}/save-round", response_class=HTMLResponse)
+async def save_round(request: Request, game_id: int):
+    """Save the current round."""
+    session = get_db_session()
+    try:
+        game = session.query(GameDB).filter_by(id=game_id).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        if game.finished_at is not None:
+            raise HTTPException(status_code=400, detail="Cannot edit finished game")
+
+        # Parse form data
+        form = await request.form()
+        scores = {}
+        finished_first = None
+        errors = []
+
+        for key, value in form.items():
+            if key.startswith("score_"):
+                player_idx = int(key.split("_")[1])
+                username = game.player_usernames[player_idx]
+
+                if value and isinstance(value, str) and value.strip():
+                    try:
+                        score_value = int(value)
+                        # Validate score range
+                        if score_value < -15 or score_value > 120:
+                            errors.append(
+                                f"Score for {username} ({score_value}) is outside the valid range (-15 to 120)"
+                            )
+                        else:
+                            scores[username] = score_value
+                    except ValueError:
+                        errors.append(
+                            f"Invalid score for {username}: '{value}' is not a valid number"
+                        )
+            elif key == "finished_first" and value and isinstance(value, str):
+                finished_first = int(value)
+
+        # Validate that all players have scores
+        if len(scores) < len(game.player_usernames):
+            missing_players = [
+                username for username in game.player_usernames if username not in scores
+            ]
+            errors.append(f"Missing scores for: {', '.join(missing_players)}")
+
+        # If there are validation errors, return to game page with errors
+        if errors:
+            raise HTTPException(status_code=400, detail="; ".join(errors))
+
+        # Need at least some scores and a round ender
+        if not scores:
+            raise HTTPException(
+                status_code=400, detail="No scores provided for this round"
+            )
+
+        # Determine round ender
+        if finished_first is not None and 0 <= finished_first < len(
+            game.player_usernames
+        ):
+            round_ender_username = game.player_usernames[finished_first]
+        else:
+            # Default to first player who has a score
+            round_ender_username = next(iter(scores.keys()))
+
+        # Create round
+        from db import RoundDB
+
+        round_number = len(game.rounds) + 1
+        round_obj = RoundDB(
+            game_id=game_id,
+            round_number=round_number,
+            player_raw_scores=scores,
+            round_ender_username=round_ender_username,
+        )
+        session.add(round_obj)
+        session.commit()
+
+        return _render_game_content(request, game_id, session)
+    finally:
+        session.close()
+
+
+@app.post("/game/{game_id}/end-game", response_class=HTMLResponse)
+async def end_game(request: Request, game_id: int):
+    """End the game and show the winner."""
+    from datetime import UTC, datetime
+
+    session = get_db_session()
+    try:
+        game = session.query(GameDB).filter_by(id=game_id).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+
+        game.finished_at = datetime.now(UTC)
+        session.commit()
+
+        return _render_game_content(request, game_id, session)
+    finally:
+        session.close()
