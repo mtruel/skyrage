@@ -1,0 +1,71 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Documentation
+docs/_build/
+
+# Database files (will be mounted via volume)
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.local
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files (not needed in the image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Project specific
+BACKLOG.md
+README.md
+SKYJO_RULES.md
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+tmp/
+temp/

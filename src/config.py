@@ -1,5 +1,6 @@
 """Configuration management for Skyrage."""
 
+import os
 from pathlib import Path
 
 import yaml
@@ -29,7 +30,9 @@ def load_config(config_path: str | Path = "config.yaml") -> dict:
 
 def get_database_url(config_path: str | Path = "config.yaml") -> str:
     """
-    Get the database URL from config.
+    Get the database URL from config or environment variable.
+
+    Environment variable DATABASE_PATH takes precedence over config file.
 
     Args:
         config_path: Path to the config file
@@ -37,8 +40,13 @@ def get_database_url(config_path: str | Path = "config.yaml") -> str:
     Returns:
         SQLAlchemy database URL string
     """
-    config = load_config(config_path)
-    db_path = config.get("database_path", "skyrage.db")
+    # Check environment variable first
+    db_path = os.getenv("DATABASE_PATH")
+
+    # Fall back to config file if env var not set
+    if db_path is None:
+        config = load_config(config_path)
+        db_path = config.get("database_path", "skyrage.db")
 
     # Handle in-memory database
     if db_path == ":memory:":
