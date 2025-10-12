@@ -7,6 +7,7 @@
     <title>SkyRage Scoreboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script src="/static/delete-confirmation.js" defer></script>
     <style>
         .game-list {
             margin: 2rem 0;
@@ -81,35 +82,6 @@
             border-color: #bd2130;
         }
     </style>
-    <script>
-        // Handle delete confirmation behavior
-        function handleDeleteClick(button, gameId) {
-            if (button.classList.contains('confirm-delete')) {
-                // Second click - delete the game
-                fetch(`/game/${gameId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => {
-                    if (response.ok) {
-                        // Remove the game card from the DOM
-                        button.closest('.game-card').remove();
-                    }
-                })
-                .catch(error => console.error('Error deleting game:', error));
-            } else {
-                // First click - enter confirmation mode
-                button.classList.add('confirm-delete');
-                const originalText = button.innerHTML;
-                button.innerHTML = '🗑️';
-                
-                // Reset after 3 seconds
-                setTimeout(() => {
-                    button.classList.remove('confirm-delete');
-                    button.innerHTML = originalText;
-                }, 3000);
-            }
-        }
-    </script>
 </head>
 
 <body>
@@ -150,7 +122,14 @@
                             </div>
                         </div>
                         <div class="game-actions">
-                            <button class="delete-btn" onclick="handleDeleteClick(this, {{ game.id }})" title="Delete game">
+                            <button 
+                                id="delete-game-{{ game.id }}"
+                                class="delete-btn confirm-delete-htmx" 
+                                hx-delete="/game/{{ game.id }}"
+                                hx-target="closest .game-card"
+                                hx-swap="outerHTML swap:0s"
+                                title="Delete game"
+                            >
                                 🗑️
                             </button>
                             <a href="/game/{{ game.id }}" role="button">

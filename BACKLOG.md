@@ -92,8 +92,8 @@
 - [ ] **Input sanitization audit**: Review all form inputs for edge cases
 
 ### UI/UX Polish
-- [ ] **Consolidate delete confirmation JS**: Shared logic between `index.html` and `players.html`
-- [ ] **Consistent HTMX patterns**: Game deletion uses fetch+JSON, other deletes use different patterns
+- [x] **Consolidate delete confirmation JS**: Shared logic between `index.html` and `players.html`
+- [x] **Consistent HTMX patterns**: Game deletion uses fetch+JSON, other deletes use different patterns
 - [ ] **Explicit round ender UI**: Currently defaults to first player if none selected; make selection required or more obvious
 
 ---

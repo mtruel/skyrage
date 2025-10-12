@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from api import router as api_router
@@ -15,6 +16,9 @@ init_db()
 
 # Include API routes
 app.include_router(api_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=Path("src/templates/static")), name="static")
 
 templates = Jinja2Templates(directory=Path("src/templates"))
 
@@ -76,7 +80,7 @@ async def create_new_game(request: Request, players: list[str] = Form(...)):
         session.close()
 
 
-@app.delete("/game/{game_id}")
+@app.delete("/game/{game_id}", status_code=204)
 async def delete_game(game_id: int):
     """Delete a game and all its associated rounds."""
     session = get_db_session()
@@ -88,7 +92,7 @@ async def delete_game(game_id: int):
         session.delete(game)
         session.commit()
 
-        return {"success": True, "message": "Game deleted successfully"}
+        return Response(status_code=204)
     finally:
         session.close()
 

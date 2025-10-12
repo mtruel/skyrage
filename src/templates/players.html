@@ -7,6 +7,7 @@
     <title>Players - SkyRage Scoreboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+    <script src="/static/delete-confirmation.js" defer></script>
     <style>
         .player-table {
             margin: 2rem 0;
@@ -132,11 +133,14 @@
             <a href="/" role="button" class="secondary">← Back to Home</a>
             <button 
                 id="delete-dangling-btn" 
-                class="delete-dangling-btn"
-                onclick="handleDeleteDanglingPlayers(this)"
+                class="delete-dangling-btn confirm-delete-htmx"
+                hx-delete="/api/dangling_players"
+                hx-swap="none"
                 title="Delete all players not associated with any game"
             >
                 Delete Dangling Players
+            </button>
+        </div>
             </button>
         </div>
         
@@ -171,8 +175,11 @@
                             <td>
                                 <div class="player-actions">
                                     <button 
-                                        class="delete-btn" 
-                                        onclick="handlePlayerDeleteClick(this, '{{ player.username }}')" 
+                                        id="delete-player-{{ player.username }}"
+                                        class="delete-btn confirm-delete-htmx" 
+                                        hx-delete="/api/players/{{ player.username }}"
+                                        hx-target="closest tr"
+                                        hx-swap="outerHTML swap:0s"
                                         title="Delete player"
                                     >
                                         🗑️
@@ -191,105 +198,6 @@
             {% endif %}
         </section>
     </main>
-    
-    <script>
-        function handleDeleteDanglingPlayers(button) {
-            if (button.classList.contains('confirm-delete')) {
-                // Second click - delete dangling players
-                button.disabled = true;
-                button.innerHTML = 'Deleting...';
-                
-                fetch('/api/dangling_players', {
-                    method: 'DELETE'
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Show detailed information
-                    if (data.deleted_count > 0) {
-                        alert(`✅ Deleted ${data.deleted_count} dangling player(s):\n${data.deleted_usernames.join(', ')}\n\nTotal players: ${data.total_players}\nPlayers in games: ${data.protected_players}`);
-                        window.location.reload();
-                    } else {
-                        alert(`ℹ️ No dangling players found.\n\nTotal players: ${data.total_players}\nAll players are associated with games: ${data.protected_players}`);
-                        button.disabled = false;
-                        button.innerHTML = 'Delete Dangling Players';
-                        button.classList.remove('confirm-delete');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting dangling players:', error);
-                    alert('An error occurred while deleting dangling players: ' + error.message);
-                    button.disabled = false;
-                    button.innerHTML = 'Delete Dangling Players';
-                    button.classList.remove('confirm-delete');
-                });
-            } else {
-                // First click - enter confirmation mode
-                button.classList.add('confirm-delete');
-                button.innerHTML = 'Click again to confirm';
-                
-                // Reset after 3 seconds
-                setTimeout(() => {
-                    button.classList.remove('confirm-delete');
-                    button.innerHTML = 'Delete Dangling Players';
-                }, 3000);
-            }
-        }
-
-        function handlePlayerDeleteClick(button, username) {
-            const errorDiv = document.getElementById(`error-${username}`);
-            
-            if (button.classList.contains('confirm-delete')) {
-                // Second click - delete the player
-                errorDiv.style.display = 'none';
-                errorDiv.textContent = '';
-                
-                fetch(`/api/players/${username}`, {
-                    method: 'DELETE'
-                })
-                .then(response => {
-                    if (response.ok) {
-                        // Remove the player row from the DOM
-                        document.getElementById(`player-row-${username}`).remove();
-                    } else if (response.status === 400) {
-                        // Player has linked games - show error
-                        return response.json().then(data => {
-                            errorDiv.textContent = data.detail || 'Cannot delete player with game history.';
-                            errorDiv.style.display = 'block';
-                            button.classList.remove('confirm-delete');
-                            button.innerHTML = '🗑️';
-                        });
-                    } else {
-                        throw new Error('Failed to delete player');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting player:', error);
-                    errorDiv.textContent = 'An error occurred while deleting the player.';
-                    errorDiv.style.display = 'block';
-                    button.classList.remove('confirm-delete');
-                    button.innerHTML = '🗑️';
-                });
-            } else {
-                // First click - enter confirmation mode
-                errorDiv.style.display = 'none';
-                errorDiv.textContent = '';
-                button.classList.add('confirm-delete');
-                const originalText = button.innerHTML;
-                button.innerHTML = '🗑️';
-                
-                // Reset after 3 seconds
-                setTimeout(() => {
-                    button.classList.remove('confirm-delete');
-                    button.innerHTML = originalText;
-                }, 3000);
-            }
-        }
-    </script>
 </body>
 
 </html>
