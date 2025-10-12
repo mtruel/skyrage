@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from api import router as api_router
 from db import GameDB, PlayerDB, get_db_session, get_or_create_player, init_db
-from scores import apply_doubling_penalty
+from model import Game
 
 app = FastAPI()
 
@@ -170,13 +170,16 @@ async def game_page(request: Request, game_id: int):
     """Main game page."""
     session = get_db_session()
     try:
-        game = session.query(GameDB).filter_by(id=game_id).first()
-        if not game:
+        game_db = session.query(GameDB).filter_by(id=game_id).first()
+        if not game_db:
             raise HTTPException(status_code=404, detail="Game not found")
+
+        # Convert to domain model
+        game = Game.from_db(game_db, session)
 
         # Fetch player details (username and surname) for all players in the game
         player_details = []
-        for username in game.player_usernames:
+        for username in game_db.player_usernames:
             player = session.query(PlayerDB).filter_by(username=username).first()
             if player:
                 player_details.append(
@@ -186,16 +189,24 @@ async def game_page(request: Request, game_id: int):
                 # Fallback if player not found in DB
                 player_details.append({"username": username, "surname": None})
 
-        # Build display data for completed rounds
+        # Build display data for completed rounds using domain model
         rounds_display = []
-        for round_db in game.rounds:
-            scores = round_db.player_raw_scores
+        for i, round_obj in enumerate(game.rounds):
+            round_db = game_db.rounds[i]  # Need DB object for round_number
 
-            # Calculate final scores using shared utility
-            final_scores = apply_doubling_penalty(scores, round_db.round_ender_username)
+            # Get final scores from domain model
+            final_scores_domain = round_obj.final_scores()
+
+            # Convert Player keys to username strings for template
+            final_scores = {
+                p.username: score for p, score in final_scores_domain.items()
+            }
+            raw_scores = {
+                p.username: score for p, score in round_obj.player_raw_scores.items()
+            }
 
             # Find the minimum raw score (for display logic)
-            min_score = min(scores.values()) if scores else None
+            min_score = min(raw_scores.values()) if raw_scores else None
             # Find the minimum final score (after doubling)
             min_final_score = min(final_scores.values()) if final_scores else None
 
@@ -203,10 +214,10 @@ async def game_page(request: Request, game_id: int):
             details = {}
 
             # Build display strings and details
-            for username in game.player_usernames:
-                if username in scores:
-                    raw_score = scores[username]
-                    finished_first = round_db.round_ender_username == username
+            for username in game_db.player_usernames:
+                if username in raw_scores:
+                    raw_score = raw_scores[username]
+                    finished_first = round_obj.round_ender.username == username
                     is_lowest = raw_score == min_score
                     final_score = final_scores[username]
                     is_winner = final_score == min_final_score
@@ -237,17 +248,15 @@ async def game_page(request: Request, game_id: int):
         current_round = {"scores": {}, "finished_first": None}
 
         # Check if game is finished
-        game_ended = game.finished_at is not None
+        game_ended = game_db.finished_at is not None
         winner_text = ""
         if game_ended:
-            # Calculate final totals
-            final_totals = {username: 0 for username in game.player_usernames}
-            for round_display in rounds_display:
-                for username, score in round_display["final_scores"].items():
-                    final_totals[username] += score
+            # Use domain model to calculate winner
+            total_scores = game.player_total_scores()
+            total_scores_str = {p.username: score for p, score in total_scores.items()}
 
-            min_total = min(final_totals.values())
-            winners = [u for u, s in final_totals.items() if s == min_total]
+            min_total = min(total_scores_str.values())
+            winners = [u for u, s in total_scores_str.items() if s == min_total]
             winner_text = f"Winner: {', '.join(winners)} with {min_total} points!"
 
         return templates.TemplateResponse(
@@ -255,7 +264,7 @@ async def game_page(request: Request, game_id: int):
             {
                 "request": request,
                 "game_id": game_id,
-                "players": game.player_usernames,
+                "players": game_db.player_usernames,
                 "player_details": player_details,
                 "rounds": rounds_display,
                 "current_round": current_round,

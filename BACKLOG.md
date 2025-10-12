@@ -1,7 +1,7 @@
 # Skyrage Code Review Backlog
 
 **Review Date:** October 12, 2025  
-**Status:** 31 tests passing, all lint/format/type checks green, no warnings
+**Status:** 111 tests passing, all lint/format/type checks green, no warnings
 
 ---
 
@@ -22,7 +22,7 @@
 ## Medium Effort (2-4 hours each)
 
 ### Code Quality & Maintainability
-- [x] **Consolidate score doubling logic**: Currently implemented in both `model.Round.final_scores()` and `main.game_page()`. Extract to shared service/utility
+- [x] **Consolidate score doubling logic**: ✅ Resolved by adopting domain models. `main.game_page()` now uses `Round.final_scores()` from domain model instead of duplicating logic.
 - [x] **Consolidate player creation logic**: Duplicated across `api.create_player`, `main.create_player`, `api.create_game`, and `main.create_new_game`. Create single function
 - [ ] **Improve deletion performance**: Replace O(N) full-table scan in `api.delete_player` with filtered SQL queries (JSON contains checks or normalized schema)
 - [x] **Fix N+1 queries in domain models**: `model.from_db()` methods open sessions and query per username. Refactor to accept session parameter or use eager loading
@@ -40,10 +40,11 @@
 ## Larger Refactors (4-8 hours each)
 
 ### Architecture Decisions Needed
-- [ ] **Domain model usage** ⚠️ **NEEDS INPUT**: Domain models (`Player`, `Round`, `Game`) exist but are unused by the app runtime (only in tests). Options:
-  - A) Adopt domain layer throughout app (use in handlers, templates)
-  - B) Remove domain layer entirely, keep DB-only approach
-  - C) Keep for future refactor but acknowledge tech debt
+- [x] **Domain model usage** ✅ **IMPLEMENTED**: Domain models (`Player`, `Round`, `Game`) are now used in production runtime.
+  - **Decision:** Option A - Adopt domain layer throughout app
+  - **Implementation:** `main.game_page()` now uses `Game.from_db()` and its methods (`player_total_scores()`, `winner()`, etc.)
+  - **Benefits:** Eliminated score calculation duplication, centralized business logic in domain models, maintained existing template interface
+  - **Status:** All 111 tests passing, linter/formatter/type checks green
   
 - [ ] **Username editing behavior** ⚠️ **NEEDS INPUT**: `update_player_name` in game only mutates game's username list, not PlayerDB primary key. This creates divergence. Options:
   - A) Disallow username editing in games (only allow surname editing)
