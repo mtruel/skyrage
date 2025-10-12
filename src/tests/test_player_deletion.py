@@ -67,7 +67,7 @@ class TestPlayerDeletion:
             exc = cast(HTTPException, exc_info.value)
             assert exc.status_code == 400
             # Should now catch it at the game level
-            assert "part of game" in exc.detail or "participated in games" in exc.detail
+            assert "participated in games" in exc.detail
 
             # Verify player1 still exists
             still_exists = session.query(PlayerDB).filter_by(username="player1").first()
@@ -116,11 +116,7 @@ class TestPlayerDeletion:
             # Should catch it at the game level first
             exc = cast(HTTPException, exc_info.value)
             assert exc.status_code == 400
-            assert (
-                "part of game" in exc.detail
-                or "participated in games" in exc.detail
-                or "ended" in exc.detail
-            )
+            assert "participated in games" in exc.detail
 
         finally:
             # Cleanup
@@ -154,7 +150,7 @@ class TestPlayerDeletion:
 
             exc = cast(HTTPException, exc_info.value)
             assert exc.status_code == 400
-            assert "part of game" in exc.detail
+            assert "participated in games" in exc.detail
 
             # Verify player1 still exists
             still_exists = session.query(PlayerDB).filter_by(username="player1").first()

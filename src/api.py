@@ -218,7 +218,7 @@ def delete_player(username: str):
             if username in game.player_usernames:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot delete player '{username}' - they are part of game #{game.id}. Player data must be preserved for game history.",
+                    detail=f"Cannot delete player '{username}' - they have participated in games (game #{game.id}). Player data must be preserved for game history.",
                 )
 
         # Check if player appears in any round's player_raw_scores
@@ -227,7 +227,7 @@ def delete_player(username: str):
             if username in round_db.player_raw_scores:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot delete player '{username}' - they have participated in games. Player data must be preserved for game history.",
+                    detail=f"Cannot delete player '{username}' - they have participated in games (round scores recorded). Player data must be preserved for game history.",
                 )
 
         # Check if player ended any rounds
@@ -237,7 +237,7 @@ def delete_player(username: str):
         if rounds_count > 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot delete player '{username}' - they have ended {rounds_count} round(s). Player data must be preserved for game history.",
+                detail=f"Cannot delete player '{username}' - they have participated in games (ended {rounds_count} round(s)). Player data must be preserved for game history.",
             )
 
         session.delete(player)
