@@ -83,6 +83,7 @@ This rule can be decided upon before the game starts.
 3. **Special penalty:** If the player who ended the round (revealed all cards first) does **NOT** have the lowest score:
    - Their score for that round is **doubled**
    - This penalty only applies to **positive scores** (negative scores are not doubled)
+4. **Valid score range:** Scores can range from -15 to 120 points per round (based on card values and column elimination rules)
 4. Each player records their round score and adds it to their cumulative total
 
 ### Example Scoring

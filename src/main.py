@@ -413,19 +413,6 @@ async def add_player(request: Request, game_id: int, username: str = Form(None))
         session.close()
 
 
-@app.post("/game/{game_id}/update-score", response_class=HTMLResponse)
-async def update_score(
-    request: Request,
-    game_id: int,
-    player_idx: int = Form(...),
-    score: str = Form(...),
-):
-    """Update a player's score for the current round (in-memory only)."""
-    # Note: This is handled by the template state for now
-    # We'll keep the current approach where scores are only saved when "Save Round" is clicked
-    return await game_page(request, game_id)
-
-
 @app.post("/game/{game_id}/save-round", response_class=HTMLResponse)
 async def save_round(request: Request, game_id: int):
     """Save the current round."""
@@ -453,9 +440,9 @@ async def save_round(request: Request, game_id: int):
                     try:
                         score_value = int(value)
                         # Validate score range
-                        if score_value < -5 or score_value > 120:
+                        if score_value < -15 or score_value > 120:
                             errors.append(
-                                f"Score for {username} ({score_value}) is outside the valid range (-5 to 120)"
+                                f"Score for {username} ({score_value}) is outside the valid range (-15 to 120)"
                             )
                         else:
                             scores[username] = score_value

@@ -45,6 +45,7 @@ class TestPlayerDB:
         player1 = PlayerDB(username="bob", surname="Smith")
         test_db.add(player1)
         test_db.commit()
+        test_db.expunge(player1)  # Remove from session to avoid identity conflict
 
         # Try to add another player with same username
         player2 = PlayerDB(username="bob", surname="Jones")

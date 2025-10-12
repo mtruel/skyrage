@@ -4,7 +4,15 @@ import json
 from datetime import UTC, datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import (
+    DateTime,
+    Engine,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+)
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -123,14 +131,14 @@ def get_default_database_url() -> str:
         return "sqlite:///skyrage.db"
 
 
-def get_engine(database_url: str | None = None):
+def get_engine(database_url: str | None = None) -> Engine:
     """Create and return a database engine."""
     if database_url is None:
         database_url = get_default_database_url()
     return create_engine(database_url, echo=False)
 
 
-def get_session_maker(database_url: str | None = None):
+def get_session_maker(database_url: str | None = None) -> sessionmaker[Session]:
     """Create and return a session maker."""
     engine = get_engine(database_url)
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)

@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
 
 from db import GameDB, PlayerDB, RoundDB, get_db_session
@@ -62,10 +62,14 @@ def create_player(player_data: PlayerCreate):
         )
         if existing:
             # Return existing player instead of error
-            return PlayerResponse(
-                username=existing.username,
-                surname=existing.surname,
-                created_at=existing.created_at,
+            return Response(
+                content=PlayerResponse(
+                    username=existing.username,
+                    surname=existing.surname,
+                    created_at=existing.created_at,
+                ).model_dump_json(),
+                status_code=status.HTTP_200_OK,
+                media_type="application/json",
             )
 
         # Create new player
