@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 from api import router as api_router
 from db import GameDB, PlayerDB, get_db_session, init_db
+from scores import apply_doubling_penalty
 
 app = FastAPI()
 
@@ -195,31 +196,19 @@ async def game_page(request: Request, game_id: int):
         rounds_display = []
         for round_db in game.rounds:
             scores = round_db.player_raw_scores
+
+            # Calculate final scores using shared utility
+            final_scores = apply_doubling_penalty(scores, round_db.round_ender_username)
+
+            # Find the minimum raw score (for display logic)
             min_score = min(scores.values()) if scores else None
-
-            final_scores = {}
-            displays = {}
-            details = {}
-
-            # First pass: calculate all final scores to find the minimum
-            for username in game.player_usernames:
-                if username in scores:
-                    raw_score = scores[username]
-                    finished_first = round_db.round_ender_username == username
-                    is_lowest = raw_score == min_score
-
-                    # Calculate final score with doubling rule
-                    if finished_first and not is_lowest and raw_score > 0:
-                        final_score = raw_score * 2
-                    else:
-                        final_score = raw_score
-
-                    final_scores[username] = final_score
-
             # Find the minimum final score (after doubling)
             min_final_score = min(final_scores.values()) if final_scores else None
 
-            # Second pass: build display strings with winner marker
+            displays = {}
+            details = {}
+
+            # Build display strings and details
             for username in game.player_usernames:
                 if username in scores:
                     raw_score = scores[username]

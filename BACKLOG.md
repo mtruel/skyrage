@@ -17,8 +17,6 @@
 
 ### Documentation
 - [x] **Document score range**: Add comment in code and/or `SKYJO_RULES.md` clarifying valid score range
-- [ ] **Document player name editing quirk**: Add comment explaining that updating player name in game only affects that game's list, not the PlayerDB record
-
 ---
 
 ## Medium Effort (2-4 hours each)

@@ -774,43 +774,54 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    successDiv.textContent = `Player "${username}" created! Refreshing list...`;
-                    successDiv.style.display = 'block';
-                    
-                    // Clear inputs
-                    usernameInput.value = '';
-                    surnameInput.value = '';
-                    
-                    // Reload the player list after a short delay
-                    setTimeout(() => {
-                        // Get the game ID from the modal context
-                        const gameId = window.currentGameId;
-                        if (gameId) {
-                            const playerList = document.getElementById('modal-player-list');
-                            playerList.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading players...</div>';
-                            
-                            fetch(`/game/${gameId}/available-players`)
-                                .then(response => response.text())
-                                .then(html => {
-                                    playerList.innerHTML = html;
-                                    successDiv.style.display = 'none';
-                                })
-                                .catch(error => {
-                                    console.error('Error reloading players:', error);
-                                });
-                        }
-                    }, 1000);
-                } else {
-                    errorDiv.textContent = data.detail || 'Error creating player';
-                    errorDiv.style.display = 'block';
+            .then(response => {
+                // Check if response is ok before parsing
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
                 }
+                return response.json();
+            })
+            .then(data => {
+                // Success case
+                successDiv.textContent = `Player "${username}" created! Refreshing list...`;
+                successDiv.style.display = 'block';
+                
+                // Clear inputs
+                usernameInput.value = '';
+                surnameInput.value = '';
+                
+                // Reload the player list after a short delay
+                setTimeout(() => {
+                    // Get the game ID from the modal context
+                    const gameId = currentGameId;
+                    if (gameId) {
+                        const playerList = document.getElementById('modal-player-list');
+                        playerList.innerHTML = '<div style="text-align: center; padding: 2rem;">Loading players...</div>';
+                        
+                        fetch(`/game/${gameId}/available-players`)
+                            .then(response => response.text())
+                            .then(html => {
+                                playerList.innerHTML = html;
+                                successDiv.style.display = 'none';
+                            })
+                            .catch(error => {
+                                console.error('Error reloading players:', error);
+                                errorDiv.textContent = 'Error loading players';
+                                errorDiv.style.display = 'block';
+                            });
+                    } else {
+                        console.error('No game ID available for refresh');
+                        errorDiv.textContent = 'Error: No game ID available';
+                        errorDiv.style.display = 'block';
+                    }
+                }, 1000);
             })
             .catch(error => {
-                errorDiv.textContent = 'Error creating player. They may already exist.';
+                // Error case - handle both network errors and HTTP errors
+                const message = error.detail || error.message || 'Error creating player';
+                errorDiv.textContent = message;
                 errorDiv.style.display = 'block';
+                console.error('Error creating player:', error);
             });
         }
         

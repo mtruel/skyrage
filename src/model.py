@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from src.scores import apply_doubling_penalty
+
 if TYPE_CHECKING:
     from src.db import GameDB, PlayerDB, RoundDB
 
@@ -43,20 +45,7 @@ class Round(BaseModel):
         If the round_ender doesn't have the lowest score and their score is positive,
         their score is doubled.
         """
-        final_scores = {}
-
-        # Calculate raw scores first
-        min_score = min(self.player_raw_scores.values())
-
-        for player, raw_score in self.player_raw_scores.items():
-            # Check if this player ended the round and doesn't have lowest score
-            if player == self.round_ender and raw_score > min_score and raw_score > 0:
-                # Apply doubling penalty
-                final_scores[player] = raw_score * 2
-            else:
-                final_scores[player] = raw_score
-
-        return final_scores
+        return apply_doubling_penalty(self.player_raw_scores, self.round_ender)
 
     @classmethod
     def from_db(cls, round_db: "RoundDB") -> "Round":
