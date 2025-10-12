@@ -581,6 +581,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "python-multipart" },
+    { name = "pyyaml" },
     { name = "sqlalchemy" },
 ]
 
@@ -591,6 +592,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.0" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
 ]
 

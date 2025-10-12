@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyjo Game - Score Tracker</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        table, th, td {
+            border: 1px solid #000;
+        }
+        
+        th, td {
+            padding: 8px;
+            text-align: center;
+            min-width: 80px;
+        }
+        
+        th {
+            background-color: #f0f0f0;
+        }
+        
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .round-header {
+            background-color: #e8e8e8;
+            font-weight: bold;
+        }
+        
+        .cumulative-row {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        
+        .input-row {
+            background-color: #fff;
+        }
+        
+        .winner-display {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 24px;
+            border-radius: 5px;
+        }
+        
+        h1 {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Skyjo Game - Score Tracker</h1>
+    
+    {% if game_ended %}
+    <div class="winner-display">
+        {{ winner_text }}
+    </div>
+    <button onclick="window.location.href='/game'">New Game</button>
+    {% endif %}
+    
+    <table>
+        <thead>
+            <tr>
+                <th></th>
+                {% for i in range(players|length) %}
+                <th>
+                    <form hx-post="/game/update-player-name" 
+                          hx-target="body" 
+                          hx-swap="innerHTML"
+                          hx-trigger="change">
+                        <input type="hidden" name="player_idx" value="{{ i }}">
+                        <input type="text" 
+                               name="name" 
+                               value="{{ players[i] }}"
+                               placeholder="Player {{ i + 1 }}">
+                    </form>
+                </th>
+                {% endfor %}
+                <th>
+                    <form hx-post="/game/add-player" 
+                          hx-target="body" 
+                          hx-swap="innerHTML">
+                        <button type="submit">+ Add Player</button>
+                    </form>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for round in rounds %}
+            <!-- Round header row: shows final computed scores -->
+            <tr class="round-header">
+                <td>#{{ round.number }}</td>
+                {% for i in range(players|length) %}
+                <td>
+                    {% if i in round.displays %}
+                        {{ round.displays[i] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td></td>
+            </tr>
+            
+            <!-- Detail row: shows breakdown (raw score or doubled) -->
+            <tr>
+                <td></td>
+                {% for i in range(players|length) %}
+                <td>
+                    {% if i in round.details %}
+                        {{ round.details[i] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td></td>
+            </tr>
+            
+            <!-- Cumulative row: running total -->
+            <tr class="cumulative-row">
+                <td>=</td>
+                {% for i in range(players|length) %}
+                <td>
+                    {% set cumulative = namespace(total=0) %}
+                    {% for r in rounds[:loop.index0 + 1] %}
+                        {% if i in r.final_scores %}
+                            {% set cumulative.total = cumulative.total + r.final_scores[i] %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ cumulative.total }}
+                </td>
+                {% endfor %}
+                <td></td>
+            </tr>
+            {% endfor %}
+            
+            <!-- Current round input row -->
+            {% if not game_ended %}
+            <tr class="round-header">
+                <td>#{{ rounds|length + 1 }}</td>
+                {% for i in range(players|length) %}
+                <td>
+                    <form hx-post="/game/toggle-first" 
+                          hx-target="body" 
+                          hx-swap="innerHTML"
+                          hx-trigger="change"
+                          style="display: inline;">
+                        <input type="hidden" name="player_idx" value="{{ i }}">
+                        <input type="checkbox" 
+                               name="finished_first"
+                               {% if current_round.finished_first == i %}checked{% endif %}>
+                    </form>
+                    <span>...</span>
+                </td>
+                {% endfor %}
+                <td></td>
+            </tr>
+            
+            <tr class="input-row">
+                <td></td>
+                {% for i in range(players|length) %}
+                <td>
+                    <form hx-post="/game/update-score" 
+                          hx-target="body" 
+                          hx-swap="innerHTML"
+                          hx-trigger="change">
+                        <input type="hidden" name="player_idx" value="{{ i }}">
+                        <input type="number" 
+                               name="score" 
+                               value="{% if i in current_round.scores %}{{ current_round.scores[i] }}{% endif %}"
+                               placeholder="-"
+                               min="-5"
+                               max="12">
+                    </form>
+                </td>
+                {% endfor %}
+                <td></td>
+            </tr>
+            
+            <tr>
+                <td colspan="{{ players|length + 2 }}">
+                    <form hx-post="/game/save-round" 
+                          hx-target="body" 
+                          hx-swap="innerHTML">
+                        <button type="submit">Save Round</button>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    
+    {% if not game_ended %}
+    <div style="text-align: center; margin-top: 20px;">
+        <form hx-post="/game/end-game" 
+              hx-target="body" 
+              hx-swap="innerHTML">
+            <button type="submit" style="background-color: #f44336; color: white;">End Game</button>
+        </form>
+    </div>
+    {% endif %}
+</body>
+</html>
