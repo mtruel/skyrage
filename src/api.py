@@ -150,6 +150,56 @@ def update_player(username: str, player_data: PlayerCreate):
         session.close()
 
 
+class DeleteDanglingPlayersResponse(BaseModel):
+    deleted_count: int
+    deleted_usernames: list[str]
+    total_players: int
+    protected_players: int
+
+
+@router.delete("/dangling_players", response_model=DeleteDanglingPlayersResponse)
+def delete_dangling_players():
+    """Delete all players not associated with any game or round."""
+    session = get_db_session()
+    try:
+        all_players = session.query(PlayerDB).all()
+        all_games = session.query(GameDB).all()
+        all_rounds = session.query(RoundDB).all()
+
+        # Collect all usernames that are associated with games or rounds
+        protected_usernames = set()
+
+        # Players in game player lists
+        for game in all_games:
+            protected_usernames.update(game.player_usernames)
+
+        # Players in round scores
+        for round_db in all_rounds:
+            protected_usernames.update(round_db.player_raw_scores.keys())
+
+        # Players who ended rounds
+        for round_db in all_rounds:
+            protected_usernames.add(round_db.round_ender_username)
+
+        # Identify dangling players
+        deleted_usernames = []
+        for player in all_players:
+            if player.username not in protected_usernames:
+                deleted_usernames.append(player.username)
+                session.delete(player)
+
+        session.commit()
+
+        return DeleteDanglingPlayersResponse(
+            deleted_count=len(deleted_usernames),
+            deleted_usernames=deleted_usernames,
+            total_players=len(all_players),
+            protected_players=len(protected_usernames),
+        )
+    finally:
+        session.close()
+
+
 @router.delete("/players/{username}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_player(username: str):
     """Delete a player if they have no associated games or rounds."""
