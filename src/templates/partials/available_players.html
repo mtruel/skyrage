@@ -1,0 +1,15 @@
+{% if not available_players %}
+<div style="text-align: center; padding: 2rem; color: #666;">
+    <p>No additional players available.</p>
+    <p>All players in the database are already in this game.</p>
+</div>
+{% else %}
+{% for player in available_players %}
+<div class="modal-player-btn" onclick="selectPlayerForGame('{{ player.username }}', {{ game_id }})">
+    <div class="player-username">{{ player.username }}</div>
+    {% if player.surname %}
+    <div class="player-surname">{{ player.surname }}</div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}

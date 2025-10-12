@@ -209,6 +209,53 @@ async def game_page(request: Request, game_id: int):
         session.close()
 
 
+def _render_game_content(request: Request, game_id: int, session):
+    """Helper function to render game content partial (for HTMX updates)."""
+    game_db = session.query(GameDB).filter_by(id=game_id).first()
+    if not game_db:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # Convert to domain model
+    game = Game.from_db(game_db, session)
+
+    # Fetch player details (username and surname) for all players in the game
+    player_details = []
+    for username in game_db.player_usernames:
+        player = session.query(PlayerDB).filter_by(username=username).first()
+        if player:
+            player_details.append(
+                {"username": player.username, "surname": player.surname}
+            )
+        else:
+            # Fallback if player not found in DB
+            player_details.append({"username": username, "surname": None})
+
+    # Build display data for completed rounds using domain model
+    round_numbers = [round_db.round_number for round_db in game_db.rounds]
+    rounds_display = game.rounds_display_data(round_numbers)
+
+    # Current round data (empty for new round)
+    current_round = {"scores": {}, "finished_first": None}
+
+    # Check if game is finished
+    game_ended = game_db.finished_at is not None
+    winner_text = game.winner_text() if game_ended else ""
+
+    return templates.TemplateResponse(
+        "partials/game_content.html",
+        {
+            "request": request,
+            "game_id": game_id,
+            "players": game_db.player_usernames,
+            "player_details": player_details,
+            "rounds": rounds_display,
+            "current_round": current_round,
+            "game_ended": game_ended,
+            "winner_text": winner_text,
+        },
+    )
+
+
 @app.get("/game/{game_id}/available-players", response_class=HTMLResponse)
 async def get_available_players(request: Request, game_id: int):
     """Get list of available players (not already in the game) for modal selection."""
@@ -226,32 +273,15 @@ async def get_available_players(request: Request, game_id: int):
             p for p in all_players if p.username not in game.player_usernames
         ]
 
-        # Return HTML fragment for the modal
-        if not available_players:
-            return """
-                <div style="text-align: center; padding: 2rem; color: #666;">
-                    <p>No additional players available.</p>
-                    <p>All players in the database are already in this game.</p>
-                </div>
-            """
-
-        html_parts = []
-        for player in available_players:
-            surname_html = (
-                f'<div class="player-surname">{player.surname}</div>'
-                if player.surname
-                else ""
-            )
-            html_parts.append(
-                f"""
-                <div class="modal-player-btn" onclick="selectPlayerForGame('{player.username}', {game_id})">
-                    <div class="player-username">{player.username}</div>
-                    {surname_html}
-                </div>
-                """
-            )
-
-        return "".join(html_parts)
+        # Return HTML fragment using template
+        return templates.TemplateResponse(
+            "partials/available_players.html",
+            {
+                "request": request,
+                "available_players": available_players,
+                "game_id": game_id,
+            },
+        )
     finally:
         session.close()
 
@@ -290,7 +320,7 @@ async def add_player(request: Request, game_id: int, username: str = Form(None))
 
         session.commit()
 
-        return await game_page(request, game_id)
+        return _render_game_content(request, game_id, session)
     finally:
         session.close()
 
@@ -374,7 +404,7 @@ async def save_round(request: Request, game_id: int):
         session.add(round_obj)
         session.commit()
 
-        return await game_page(request, game_id)
+        return _render_game_content(request, game_id, session)
     finally:
         session.close()
 
@@ -393,6 +423,6 @@ async def end_game(request: Request, game_id: int):
         game.finished_at = datetime.now(UTC)
         session.commit()
 
-        return await game_page(request, game_id)
+        return _render_game_content(request, game_id, session)
     finally:
         session.close()

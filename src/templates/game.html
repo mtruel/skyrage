@@ -540,130 +540,9 @@
     <a href="/" class="back-link">← Back to Games List</a>
     <h1>Skyjo Game - Score Tracker</h1>
     
-    <!-- Error message display -->
-    <div id="error-message" class="error-message"></div>
-    
-    {% if game_ended %}
-    <div class="winner-display">
-        {{ winner_text }}
+    <div id="game-content">
+        {% include 'partials/game_content.html' %}
     </div>
-    <div style="text-align: center;">
-        <a href="/game/new" role="button">New Game</a>
-    </div>
-    {% endif %}
-    
-    <table>
-        <thead>
-            <tr>
-                <th></th>
-                {% for i in range(players|length) %}
-                <th>
-                    <div class="player-header">
-                        {% if player_details[i].surname %}
-                            <div class="player-surname">{{ player_details[i].surname }}</div>
-                            <div class="player-username-small">{{ player_details[i].username }}</div>
-                        {% else %}
-                            <div class="player-username-big">{{ player_details[i].username }}</div>
-                        {% endif %}
-                    </div>
-                </th>
-                {% endfor %}
-                <th>
-                    {% if not game_ended %}
-                    <button type="button" onclick="openAddPlayerModal({{ game_id }})">+ Add Player</button>
-                    {% endif %}
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for round in rounds %}
-            <!-- Round header row: shows final computed scores aligned right -->
-            <tr class="round-header">
-                <td>#{{ round.number }}</td>
-                {% for i in range(players|length) %}
-                <td class="score-cell">
-                    {% if players[i] in round.details and round.details[players[i]] %}
-                        <span class="finished-first-marker">{{ round.details[players[i]] }}</span>
-                    {% endif %}
-                    {% if players[i] in round.displays %}
-                        {{ round.displays[players[i]] }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                {% endfor %}
-                <td></td>
-            </tr>
-            
-            <!-- Cumulative row: running total -->
-            <tr class="cumulative-row">
-                <td>=</td>
-                {% for i in range(players|length) %}
-                <td class="score-cell">
-                    {% set cumulative = namespace(total=0) %}
-                    {% for r in rounds[:loop.index0 + 1] %}
-                        {% if players[i] in r.final_scores %}
-                            {% set cumulative.total = cumulative.total + r.final_scores[players[i]] %}
-                        {% endif %}
-                    {% endfor %}
-                    {{ cumulative.total }}
-                </td>
-                {% endfor %}
-                <td></td>
-            </tr>
-            {% endfor %}
-            
-            <!-- Current round input row -->
-            {% if not game_ended %}
-            <tr class="round-header">
-                <td>#{{ rounds|length + 1 }}</td>
-                {% for i in range(players|length) %}
-                <td>
-                    <div class="finished-first-container">
-                        <label class="finished-first-label">
-                            <input type="checkbox" 
-                                   class="finished-first-checkbox"
-                                   name="finished_first_{{ i }}"
-                                   {% if i == 0 %}checked{% endif %}
-                                   onchange="handleFinishedFirstChange(this)">
-                            <span class="finished-first-text" {% if i != 0 %}style="display: none;"{% endif %}>finished first</span>
-                        </label>
-                        <input type="number" 
-                               class="score-input"
-                               name="score_{{ i }}"
-                               placeholder="-"
-                               min="-5"
-                               max="120">
-                    </div>
-                </td>
-                {% endfor %}
-                <td></td>
-            </tr>
-            
-            <tr>
-                <td colspan="{{ players|length + 2 }}">
-                    <form id="save-round-form"
-                          hx-post="/game/{{ game_id }}/save-round" 
-                          hx-target="body" 
-                          hx-swap="innerHTML"
-                          onsubmit="return collectScoresAndSubmit({{ game_id }})">
-                        <button type="submit">Save Round</button>
-                    </form>
-                </td>
-            </tr>
-            {% endif %}
-        </tbody>
-    </table>
-    
-    {% if not game_ended %}
-    <div style="text-align: center; margin-top: 20px;">
-        <form hx-post="/game/{{ game_id }}/end-game" 
-              hx-target="body" 
-              hx-swap="innerHTML">
-            <button type="submit" style="background-color: #f44336; color: white;">End Game</button>
-        </form>
-    </div>
-    {% endif %}
     
     <!-- Add Player Modal -->
     <div id="addPlayerModal" class="modal">
@@ -729,19 +608,35 @@
         }
         
         function selectPlayerForGame(username, gameId) {
-            // Create form and submit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/game/${gameId}/add-player`;
+            // Close the modal immediately for better UX
+            closeAddPlayerModal();
             
-            const usernameInput = document.createElement('input');
-            usernameInput.type = 'hidden';
-            usernameInput.name = 'username';
-            usernameInput.value = username;
-            form.appendChild(usernameInput);
+            // Create form data and submit via fetch
+            const formData = new FormData();
+            formData.append('username', username);
             
-            document.body.appendChild(form);
-            form.submit();
+            fetch(`/game/${gameId}/add-player`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Update the game content with the returned HTML
+                const gameContent = document.getElementById('game-content');
+                if (gameContent) {
+                    gameContent.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Error adding player:', error);
+                const errorMsg = error.detail || error.message || 'Error adding player to game';
+                showError(errorMsg);
+            });
         }
         
         function createPlayerInModal() {

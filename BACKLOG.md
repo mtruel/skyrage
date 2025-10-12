@@ -65,7 +65,12 @@
 
 ### Template & Logic Separation
 - [x] **Extract template calculation logic**: ✅ **IMPLEMENTED** - `main.game_page()` now uses domain model display methods (`Round.display_data()`, `Game.rounds_display_data()`, `Game.winner_text()`) to generate template data. Display logic moved from handler to domain layer, reducing handler from ~110 lines to ~50 lines.
-- [ ] **Standardize HTMX responses**: Some endpoints return inline HTML strings, others use templates. Pick one approach
+- [x] **Standardize HTMX responses**: ✅ **IMPLEMENTED** - All HTMX endpoints now use Jinja2 templates instead of inline HTML strings. Created `src/templates/partials/` directory with:
+  - `available_players.html` - for modal player selection
+  - `game_content.html` - for game table updates
+  - Added `_render_game_content()` helper function to avoid code duplication
+  - Updated HTMX targets from `body` to `#game-content` for partial page updates (improves performance and UX)
+  - All endpoints (`add-player`, `save-round`, `end-game`, `available-players`) now consistent
 
 ---
 
