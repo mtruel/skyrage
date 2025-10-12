@@ -25,7 +25,7 @@
 - [x] **Consolidate score doubling logic**: Currently implemented in both `model.Round.final_scores()` and `main.game_page()`. Extract to shared service/utility
 - [x] **Consolidate player creation logic**: Duplicated across `api.create_player`, `main.create_player`, `api.create_game`, and `main.create_new_game`. Create single function
 - [ ] **Improve deletion performance**: Replace O(N) full-table scan in `api.delete_player` with filtered SQL queries (JSON contains checks or normalized schema)
-- [ ] **Fix N+1 queries in domain models**: `model.from_db()` methods open sessions and query per username. Refactor to accept session parameter or use eager loading
+- [x] **Fix N+1 queries in domain models**: `model.from_db()` methods open sessions and query per username. Refactor to accept session parameter or use eager loading
 - [ ] **Standardize error messages**: Player deletion has inconsistent error messages ("part of game", "participated in games", "ended round"). Unify wording
 
 ### Testing - Core Functionality
