@@ -29,11 +29,11 @@
 - [x] **Standardize error messages**: Player deletion has inconsistent error messages ("part of game", "participated in games", "ended round"). Unify wording
 
 ### Testing - Core Functionality
-- [ ] **Add API endpoint tests**: Test all REST endpoints in `api.py` (players CRUD, games CRUD, rounds create/list)
+- [x] **Add API endpoint tests**: Test all REST endpoints in `api.py` (players CRUD, games CRUD, rounds create/list)
 - [ ] **Add web handler tests**: Test form submissions and HTMX endpoints in `main.py`
-- [ ] **Add domain model conversion tests**: Test `Round.from_db()` and `Game.from_db()` with various scenarios
-- [ ] **Add config tests**: Test `get_database_url()` with missing file, in-memory DB, etc.
-- [ ] **Add edge case tests**: Ties for game winner, boundary scores, finished game mutation attempts
+- [x] **Add domain model conversion tests**: Test `Round.from_db()` and `Game.from_db()` with various scenarios
+- [x] **Add config tests**: Test `get_database_url()` with missing file, in-memory DB, etc.
+- [x] **Add edge case tests**: Ties for game winner, boundary scores, finished game mutation attempts
 
 ---
 
