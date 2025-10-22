@@ -1,0 +1,13 @@
+<div class="player-btn" 
+     data-username="{{ player.username }}"
+     onclick="togglePlayer(this)">
+    <div class="selection-indicator">✓</div>
+    <div class="player-username">{{ player.username }}</div>
+    {% if player.surname %}
+    <div class="player-surname">{{ player.surname }}</div>
+    {% endif %}
+    <input type="checkbox" 
+           name="players" 
+           value="{{ player.username }}" 
+           style="display: none;">
+</div>

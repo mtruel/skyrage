@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>New Game - SkyRage Scoreboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
     <style>
         .player-grid {
             display: grid;
@@ -209,23 +210,32 @@
         <!-- Create New Player Section -->
         <div class="create-player-section">
             <h3>➕ Create New Player</h3>
-            <div class="create-player-form">
+            <form 
+                class="create-player-form"
+                hx-post="/player/create"
+                hx-target="#player-grid"
+                hx-swap="beforeend"
+                hx-on::after-request="if(event.detail.successful) { this.reset(); showSuccess(); } else { showError(event.detail.xhr.responseText); }"
+            >
                 <input type="text" 
                        id="new-username" 
+                       name="username"
                        placeholder="Username (required)" 
                        required>
                 <input type="text" 
-                       id="new-surname" 
+                       id="new-surname"
+                       name="surname" 
                        placeholder="Surname (optional)">
-                <button type="button" onclick="createNewPlayer()">Create Player</button>
-            </div>
+                <input type="hidden" name="template" value="player_button">
+                <button type="submit">Create Player</button>
+            </form>
             <div id="create-error" class="error-message"></div>
             <div id="create-success" class="success-message"></div>
         </div>
         
         {% if players %}
         <form id="new-game-form" action="/game/create" method="post">
-            <div class="player-grid">
+            <div class="player-grid" id="player-grid">
                 {% for player in players %}
                 <div class="player-btn" 
                      data-username="{{ player.username }}"
@@ -253,11 +263,24 @@
             </div>
         </form>
         {% else %}
-        <div class="no-players">
-            <h3>No Players Found</h3>
-            <p>You don't have any players in your database yet.</p>
-            <p>Players are automatically created when you play games, or you can manage them manually.</p>
-            <a href="/players" role="button">Go to Player Management</a>
+        <!-- Empty state with grid for dynamic player insertion -->
+        <form id="new-game-form" action="/game/create" method="post">
+            <div class="player-grid" id="player-grid">
+                <!-- Players will be dynamically added here -->
+            </div>
+            
+            <div class="action-buttons">
+                <button type="submit" 
+                        class="start-game-btn" 
+                        id="start-btn"
+                        disabled>
+                    🎮 Start Game
+                </button>
+            </div>
+        </form>
+        
+        <div class="no-players" id="no-players-message">
+            <p style="color: #999; font-style: italic;">No players yet. Create a player above to get started!</p>
         </div>
         {% endif %}
     </main>
@@ -312,59 +335,42 @@
             updateSelectionCount();
         }
         
-        function createNewPlayer() {
-            const usernameInput = document.getElementById('new-username');
-            const surnameInput = document.getElementById('new-surname');
+        // Helper functions for HTMX player creation
+        function showSuccess() {
+            const successDiv = document.getElementById('create-success');
+            const errorDiv = document.getElementById('create-error');
+            const noPlayersMsg = document.getElementById('no-players-message');
+            
+            errorDiv.style.display = 'none';
+            successDiv.textContent = 'Player created successfully!';
+            successDiv.style.display = 'block';
+            
+            // Hide "no players" message if it exists
+            if (noPlayersMsg) {
+                noPlayersMsg.style.display = 'none';
+            }
+            
+            // Hide success message after 3 seconds
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        function showError(errorText) {
             const errorDiv = document.getElementById('create-error');
             const successDiv = document.getElementById('create-success');
             
-            const username = usernameInput.value.trim();
-            const surname = surnameInput.value.trim();
-            
-            // Clear previous messages
-            errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
             
-            // Validate
-            if (!username) {
-                errorDiv.textContent = 'Username is required';
-                errorDiv.style.display = 'block';
-                return;
+            try {
+                // Try to parse JSON error response
+                const errorData = JSON.parse(errorText);
+                errorDiv.textContent = errorData.detail || 'Error creating player';
+            } catch {
+                // If not JSON, use generic message
+                errorDiv.textContent = 'Error creating player. They may already exist.';
             }
-            
-            // Create form data
-            const formData = new FormData();
-            formData.append('username', username);
-            formData.append('surname', surname);
-            
-            // Submit to backend
-            fetch('/player/create', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    successDiv.textContent = `Player "${username}" created successfully! Refreshing...`;
-                    successDiv.style.display = 'block';
-                    
-                    // Clear inputs
-                    usernameInput.value = '';
-                    surnameInput.value = '';
-                    
-                    // Reload page after a short delay
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    errorDiv.textContent = data.detail || 'Error creating player';
-                    errorDiv.style.display = 'block';
-                }
-            })
-            .catch(error => {
-                errorDiv.textContent = error.detail || 'Error creating player. They may already exist.';
-                errorDiv.style.display = 'block';
-            });
+            errorDiv.style.display = 'block';
         }
         
         // Initialize count on page load

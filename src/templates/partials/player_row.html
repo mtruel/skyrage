@@ -1,0 +1,31 @@
+<tr id="player-row-{{ player.username }}">
+    <td><strong>{{ player.username }}</strong></td>
+    <td>
+        <input 
+            type="text" 
+            class="surname-input"
+            name="surname"
+            value="{{ player.surname or '' }}"
+            placeholder="(no surname)"
+            hx-post="/player/update"
+            hx-trigger="change, blur"
+            hx-vals='{"username": "{{ player.username }}"}'
+            hx-swap="none"
+        />
+    </td>
+    <td>
+        <div class="player-actions">
+            <button 
+                id="delete-player-{{ player.username }}"
+                class="delete-btn confirm-delete-htmx" 
+                hx-delete="/api/players/{{ player.username }}"
+                hx-target="closest tr"
+                hx-swap="outerHTML swap:0s"
+                title="Delete player"
+            >
+                🗑️
+            </button>
+        </div>
+        <div id="error-{{ player.username }}" class="error-message"></div>
+    </td>
+</tr>

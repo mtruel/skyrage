@@ -8,6 +8,19 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
     <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
     <script src="/static/delete-confirmation.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide the "no players" row when a player is successfully added
+            document.body.addEventListener('htmx:afterSwap', function(event) {
+                if (event.detail.target.id === 'player-table-body') {
+                    const noPlayersRow = document.getElementById('no-players-row');
+                    if (noPlayersRow) {
+                        noPlayersRow.remove();
+                    }
+                }
+            });
+        });
+    </script>
     <style>
         .player-table {
             margin: 2rem 0;
@@ -141,21 +154,61 @@
                 Delete Dangling Players
             </button>
         </div>
-            </button>
-        </div>
+        
+        <section aria-labelledby="add-player-section">
+            <h2 id="add-player-section">Add New Player</h2>
+            <form 
+                hx-post="/player/create"
+                hx-target="#player-table-body"
+                hx-swap="afterbegin"
+                hx-on::after-request="if(event.detail.successful) this.reset()"
+            >
+                <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 1rem; align-items: end;">
+                    <div>
+                        <label for="new-username">
+                            Username
+                            <input 
+                                type="text" 
+                                id="new-username" 
+                                name="username" 
+                                placeholder="Enter username"
+                                required
+                                autocomplete="off"
+                            />
+                        </label>
+                    </div>
+                    <div>
+                        <label for="new-surname">
+                            Surname (optional)
+                            <input 
+                                type="text" 
+                                id="new-surname" 
+                                name="surname" 
+                                placeholder="Enter surname"
+                                autocomplete="off"
+                            />
+                        </label>
+                    </div>
+                    <div>
+                        <button type="submit">Add Player</button>
+                    </div>
+                </div>
+                <div id="create-player-error" class="error-message" style="display: none;"></div>
+            </form>
+        </section>
         
         <section aria-labelledby="players-section">
             <h2 id="players-section">All Players</h2>
-            {% if players %}
-                <table class="player-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Surname</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <table class="player-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Surname</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="player-table-body">
+                    {% if players %}
                         {% for player in players %}
                         <tr id="player-row-{{ player.username }}">
                             <td><strong>{{ player.username }}</strong></td>
@@ -189,13 +242,15 @@
                             </td>
                         </tr>
                         {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <div class="no-players">
-                    <p>No players recorded yet. Players are automatically created when you start games.</p>
-                </div>
-            {% endif %}
+                    {% else %}
+                        <tr id="no-players-row" class="no-players">
+                            <td colspan="3" style="text-align: center; padding: 2rem;">
+                                No players recorded yet. Add a player using the form above.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </section>
     </main>
 </body>

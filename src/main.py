@@ -145,7 +145,10 @@ async def update_player_surname(
 
 @app.post("/player/create")
 async def create_player(
-    request: Request, username: str = Form(...), surname: str = Form("")
+    request: Request,
+    username: str = Form(...),
+    surname: str = Form(""),
+    template: str = Form("player_row"),
 ):
     """Create a new player."""
     session = get_db_session()
@@ -167,7 +170,21 @@ async def create_player(
 
         session.commit()
 
-        return {"success": True, "username": username, "surname": player.surname}
+        # Return appropriate response based on template parameter
+        if template == "json":
+            # Return JSON for modal/legacy usage
+            return {"success": True, "username": username, "surname": player.surname}
+        else:
+            # Return HTML partial
+            template_name = (
+                "partials/player_button.html"
+                if template == "player_button"
+                else "partials/player_row.html"
+            )
+            return templates.TemplateResponse(
+                template_name,
+                {"request": request, "player": player},
+            )
     finally:
         session.close()
 
