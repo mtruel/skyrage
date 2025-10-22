@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from db import Base, GameDB, PlayerDB, RoundDB, create_engine
+from tests.conftest import create_game_with_players
 
 
 @pytest.fixture
@@ -74,7 +75,7 @@ class TestGameDB:
 
     def test_create_game(self, test_db):
         """Test creating a game in the database."""
-        game = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game = create_game_with_players(test_db, ["alice", "bob", "charlie"])
         test_db.add(game)
         test_db.commit()
 
@@ -87,7 +88,7 @@ class TestGameDB:
     def test_game_with_rounds(self, test_db):
         """Test creating a game with rounds."""
         # Create a game
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_db, ["alice", "bob"])
         test_db.add(game)
         test_db.commit()
 
@@ -121,7 +122,7 @@ class TestRoundDB:
     def test_create_round(self, test_db):
         """Test creating a round in the database."""
         # First create a game
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_db, ["alice", "bob"])
         test_db.add(game)
         test_db.commit()
 
@@ -144,7 +145,7 @@ class TestRoundDB:
 
     def test_round_json_serialization(self, test_db):
         """Test that player scores are properly serialized to JSON."""
-        game = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game = create_game_with_players(test_db, ["alice", "bob", "charlie"])
         test_db.add(game)
         test_db.commit()
 
@@ -169,7 +170,7 @@ class TestDatabaseRelationships:
 
     def test_game_round_cascade_delete(self, test_db):
         """Test that deleting a game deletes its rounds."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_db, ["alice", "bob"])
         test_db.add(game)
         test_db.commit()
 
@@ -194,8 +195,8 @@ class TestDatabaseRelationships:
 
     def test_multiple_games(self, test_db):
         """Test creating multiple games."""
-        game1 = GameDB(player_usernames=["alice", "bob"])
-        game2 = GameDB(player_usernames=["charlie", "dave"])
+        game1 = create_game_with_players(test_db, ["alice", "bob"])
+        game2 = create_game_with_players(test_db, ["charlie", "dave"])
         test_db.add_all([game1, game2])
         test_db.commit()
 

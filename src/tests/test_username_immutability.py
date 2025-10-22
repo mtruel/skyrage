@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.db import Base, GameDB, PlayerDB, RoundDB
+from tests.conftest import create_game_with_players
 from src.main import app
 
 
@@ -114,7 +115,7 @@ def test_username_consistency_in_rounds(test_app, test_session):
     test_session.commit()
 
     # Create a game
-    game = GameDB(player_usernames=["charlie", "dana"])
+    game = create_game_with_players(test_session, ["charlie", "dana"])
     test_session.add(game)
     test_session.commit()
 

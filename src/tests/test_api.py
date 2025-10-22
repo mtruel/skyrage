@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from db import Base, GameDB, PlayerDB, RoundDB
 from main import app
+from tests.conftest import create_game_with_players, create_round_with_scores
 
 
 @pytest.fixture
@@ -181,10 +182,12 @@ class TestPlayerEndpoints:
 
     def test_delete_player_in_game(self, test_app, test_session):
         """Test deleting a player who is in a game."""
+        from tests.conftest import create_game_with_players
+
         player = PlayerDB(username="alice", surname="Johnson")
-        game = GameDB(player_usernames=["alice", "bob"])
         test_session.add(player)
-        test_session.add(game)
+
+        create_game_with_players(test_session, ["alice", "bob"])
         test_session.commit()
 
         response = test_app.delete("/api/players/alice")
@@ -193,10 +196,12 @@ class TestPlayerEndpoints:
 
     def test_delete_player_in_round_scores(self, test_app, test_session):
         """Test deleting a player who has scores in rounds."""
+        from tests.conftest import create_game_with_players
+
         player = PlayerDB(username="alice", surname="Johnson")
-        game = GameDB(player_usernames=["alice", "bob"])
         test_session.add(player)
-        test_session.add(game)
+
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.commit()
 
         round_obj = RoundDB(
@@ -214,19 +219,21 @@ class TestPlayerEndpoints:
 
     def test_delete_player_ended_round(self, test_app, test_session):
         """Test deleting a player who ended a round."""
+        from tests.conftest import create_game_with_players
+
         player = PlayerDB(username="alice", surname="Johnson")
-        game = GameDB(player_usernames=["alice", "bob"])
         test_session.add(player)
-        test_session.add(game)
+
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.commit()
 
-        round_obj = RoundDB(
-            game_id=game.id,
-            round_number=1,
-            player_raw_scores={"alice": 10, "bob": 15},
-            round_ender_username="alice",
+        create_round_with_scores(
+            test_session,
+            game.id,
+            1,
+            {"alice": 10, "bob": 15},
+            "alice",
         )
-        test_session.add(round_obj)
         test_session.commit()
 
         response = test_app.delete("/api/players/alice")
@@ -247,7 +254,7 @@ class TestPlayerEndpoints:
         test_session.commit()
 
         # Create game with alice and bob
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -335,7 +342,9 @@ class TestGameEndpoints:
         """Test listing games with limit parameter."""
         # Create 5 games
         for i in range(5):
-            game = GameDB(player_usernames=[f"player{i}", f"player{i + 10}"])
+            game = create_game_with_players(
+                test_session, [f"player{i}", f"player{i + 10}"]
+            )
             test_session.add(game)
         test_session.commit()
 
@@ -346,7 +355,7 @@ class TestGameEndpoints:
 
     def test_get_game_exists(self, test_app, test_session):
         """Test getting a specific game that exists."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -364,7 +373,7 @@ class TestGameEndpoints:
 
     def test_end_game(self, test_app, test_session):
         """Test ending a game."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
         assert game.finished_at is None
@@ -382,7 +391,7 @@ class TestGameEndpoints:
         """Test ending a game that's already finished."""
         from datetime import UTC, datetime
 
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         game.finished_at = datetime.now(UTC)
         test_session.add(game)
         test_session.commit()
@@ -402,7 +411,7 @@ class TestRoundEndpoints:
 
     def test_create_round(self, test_app, test_session):
         """Test creating a round for a game."""
-        game = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game = create_game_with_players(test_session, ["alice", "bob", "charlie"])
         test_session.add(game)
         test_session.commit()
 
@@ -437,7 +446,7 @@ class TestRoundEndpoints:
         """Test creating a round for a finished game."""
         from datetime import UTC, datetime
 
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         game.finished_at = datetime.now(UTC)
         test_session.add(game)
         test_session.commit()
@@ -454,7 +463,7 @@ class TestRoundEndpoints:
 
     def test_create_round_player_not_in_game(self, test_app, test_session):
         """Test creating a round with a player not in the game."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -470,7 +479,7 @@ class TestRoundEndpoints:
 
     def test_create_round_ender_not_in_game(self, test_app, test_session):
         """Test creating a round with round ender not in the game."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -486,7 +495,7 @@ class TestRoundEndpoints:
 
     def test_create_multiple_rounds(self, test_app, test_session):
         """Test creating multiple rounds increments round number."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -514,7 +523,7 @@ class TestRoundEndpoints:
 
     def test_list_rounds_empty(self, test_app, test_session):
         """Test listing rounds for a game with no rounds."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -524,7 +533,7 @@ class TestRoundEndpoints:
 
     def test_list_rounds_multiple(self, test_app, test_session):
         """Test listing multiple rounds for a game."""
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 

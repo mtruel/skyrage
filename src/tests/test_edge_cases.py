@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from db import Base, GameDB, PlayerDB, RoundDB
+from tests.conftest import create_game_with_players
 from model import Game, Player, Round
 
 
@@ -32,7 +33,7 @@ class TestGameWinnerEdgeCases:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -80,7 +81,7 @@ class TestGameWinnerEdgeCases:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game_db = create_game_with_players(test_session, ["alice", "bob", "charlie"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -113,7 +114,7 @@ class TestGameWinnerEdgeCases:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -157,7 +158,7 @@ class TestBoundaryScores:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -182,7 +183,7 @@ class TestBoundaryScores:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -207,7 +208,7 @@ class TestBoundaryScores:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -233,7 +234,7 @@ class TestBoundaryScores:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -312,7 +313,7 @@ class TestFinishedGameMutations:
         """Test that finished_at flag is set correctly."""
         from datetime import UTC, datetime
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -336,7 +337,7 @@ class TestFinishedGameMutations:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         game_db.finished_at = datetime.now(UTC)
         test_session.add(game_db)
         test_session.commit()
@@ -375,7 +376,7 @@ class TestEmptyAndMinimalGames:
         test_session.add(alice)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice"])
+        game_db = create_game_with_players(test_session, ["alice"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -397,7 +398,7 @@ class TestEmptyAndMinimalGames:
 
     def test_round_with_empty_scores(self, test_session):
         """Test round with empty scores dict (edge case)."""
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -426,7 +427,7 @@ class TestLargeScoreRanges:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -457,7 +458,7 @@ class TestLargeScoreRanges:
         test_session.add(bob)
         test_session.commit()
 
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 

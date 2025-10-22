@@ -1,6 +1,7 @@
 """Tests for dangling players deletion functionality."""
 
-from db import GameDB, PlayerDB, RoundDB, get_db_session, init_db
+from db import PlayerDB, get_db_session, init_db
+from tests.conftest import create_game_with_players, create_round_with_scores
 
 
 def test_delete_dangling_players_empty_db(tmp_path):
@@ -68,8 +69,7 @@ def test_delete_dangling_players_with_dangling(tmp_path):
         session.add_all([dangling1, dangling2, protected])
 
         # Create a game with the protected player
-        game = GameDB(player_usernames=["protected"])
-        session.add(game)
+        game = create_game_with_players(session, ["protected"])
         session.commit()
         session.refresh(game)
     finally:
@@ -137,19 +137,18 @@ def test_delete_dangling_players_with_rounds(tmp_path):
         session.add_all([dangling, in_round, round_ender])
 
         # Create a game
-        game = GameDB(player_usernames=["in_round", "round_ender"])
-        session.add(game)
+        game = create_game_with_players(session, ["in_round", "round_ender"])
         session.commit()
         session.refresh(game)
 
         # Create a round
-        round_obj = RoundDB(
-            game_id=game.id,
-            round_number=1,
-            player_raw_scores={"in_round": 10, "round_ender": 20},
-            round_ender_username="round_ender",
+        create_round_with_scores(
+            session,
+            game.id,
+            1,
+            {"in_round": 10, "round_ender": 20},
+            "round_ender",
         )
-        session.add(round_obj)
         session.commit()
     finally:
         session.close()

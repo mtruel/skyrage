@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from api import delete_player
 from db import Base, GameDB, PlayerDB, RoundDB, get_db_session
+from tests.conftest import create_game_with_players, create_round_with_scores
 
 
 @pytest.fixture
@@ -80,18 +81,17 @@ class TestPlayerDeletion:
             session.commit()
 
             # Create a game
-            game = GameDB(player_usernames=["player1", "player2"])
-            session.add(game)
+            game = create_game_with_players(session, ["player1", "player2"])
             session.commit()
 
             # Create a round where player1 participated
-            round1 = RoundDB(
-                game_id=game.id,
-                round_number=1,
-                player_raw_scores={"player1": 10, "player2": 15},
-                round_ender_username="player2",
+            create_round_with_scores(
+                session,
+                game.id,
+                1,
+                {"player1": 10, "player2": 15},
+                "player2",
             )
-            session.add(round1)
             session.commit()
 
             # Try to delete player1 - should fail
@@ -129,18 +129,17 @@ class TestPlayerDeletion:
             session.commit()
 
             # Create a game
-            game = GameDB(player_usernames=["player1", "player2"])
-            session.add(game)
+            game = create_game_with_players(session, ["player1", "player2"])
             session.commit()
 
             # Create a round where player1 ended the round
-            round1 = RoundDB(
-                game_id=game.id,
-                round_number=1,
-                player_raw_scores={"player1": 10, "player2": 15},
-                round_ender_username="player1",
+            create_round_with_scores(
+                session,
+                game.id,
+                1,
+                {"player1": 10, "player2": 15},
+                "player1",
             )
-            session.add(round1)
             session.commit()
 
             # Try to delete player1 - should fail
@@ -174,8 +173,7 @@ class TestPlayerDeletion:
             session.commit()
 
             # Create a game with no rounds yet
-            game = GameDB(player_usernames=["player1", "player2"])
-            session.add(game)
+            game = create_game_with_players(session, ["player1", "player2"])
             session.commit()
 
             # Try to delete player1 - should fail

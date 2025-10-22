@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from db import Base, GameDB, PlayerDB, RoundDB
+from tests.conftest import create_game_with_players
 from model import Game, Player, Round
 
 
@@ -56,7 +57,7 @@ class TestRoundFromDB:
         test_session.commit()
 
         # Create game and round
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -93,7 +94,7 @@ class TestRoundFromDB:
         test_session.commit()
 
         # Create game and round
-        game = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game = create_game_with_players(test_session, ["alice", "bob", "charlie"])
         test_session.add(game)
         test_session.commit()
 
@@ -119,7 +120,7 @@ class TestRoundFromDB:
         test_session.commit()
 
         # Create game and round with bob as ender
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -144,7 +145,7 @@ class TestRoundFromDB:
         test_session.commit()
 
         # Create game and round with bob in scores
-        game = GameDB(player_usernames=["alice", "bob"])
+        game = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game)
         test_session.commit()
 
@@ -177,7 +178,7 @@ class TestGameFromDB:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -197,7 +198,7 @@ class TestGameFromDB:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -294,7 +295,7 @@ class TestGameFromDB:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob", "charlie"])
+        game_db = create_game_with_players(test_session, ["alice", "bob", "charlie"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -338,7 +339,7 @@ class TestGameFromDB:
         test_session.commit()
 
         # Create game
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
@@ -385,7 +386,7 @@ class TestGameFromDB:
         test_session.commit()
 
         # Create game with alice and bob (bob doesn't exist)
-        game_db = GameDB(player_usernames=["alice", "bob"])
+        game_db = create_game_with_players(test_session, ["alice", "bob"])
         test_session.add(game_db)
         test_session.commit()
 
