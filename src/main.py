@@ -63,16 +63,27 @@ async def create_new_game(request: Request, players: list[str] = Form(...)):
                 detail="At least 2 players are required to start a game",
             )
 
-        # Create game with selected players
-        game = GameDB(player_usernames=players)
-        session.add(game)
-        session.commit()
-        session.refresh(game)
-
         # Auto-create player records if they don't exist (shouldn't happen since we're selecting from existing)
-        for username in game.player_usernames:
+        for username in players:
             get_or_create_player(session, username, surname=None)
         session.commit()
+
+        # Create game with selected players (set JSON for backward compatibility)
+        game = GameDB(player_usernames=players)
+        session.add(game)
+        session.flush()  # Get the game ID
+
+        # Populate normalized game_players table
+        from db import GamePlayerDB
+
+        for order, username in enumerate(players):
+            game_player = GamePlayerDB(
+                game_id=game.id, username=username, player_order=order
+            )
+            session.add(game_player)
+
+        session.commit()
+        session.refresh(game)
 
         # Redirect to the newly created game page
         return RedirectResponse(url=f"/game/{game.id}", status_code=303)
@@ -395,8 +406,8 @@ async def save_round(request: Request, game_id: int):
             # Default to first player who has a score
             round_ender_username = next(iter(scores.keys()))
 
-        # Create round
-        from db import RoundDB
+        # Create round (set JSON for backward compatibility)
+        from db import RoundDB, RoundScoreDB
 
         round_number = len(game.rounds) + 1
         round_obj = RoundDB(
@@ -406,6 +417,15 @@ async def save_round(request: Request, game_id: int):
             round_ender_username=round_ender_username,
         )
         session.add(round_obj)
+        session.flush()  # Get the round ID
+
+        # Populate normalized round_scores table
+        for username, raw_score in scores.items():
+            round_score = RoundScoreDB(
+                round_id=round_obj.id, username=username, raw_score=raw_score
+            )
+            session.add(round_score)
+
         session.commit()
 
         return _render_game_content(request, game_id, session)

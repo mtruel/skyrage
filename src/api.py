@@ -169,24 +169,24 @@ def delete_dangling_players():
     """Delete all players not associated with any game or round."""
     session = get_db_session()
     try:
-        all_players = session.query(PlayerDB).all()
-        all_games = session.query(GameDB).all()
-        all_rounds = session.query(RoundDB).all()
+        from db import GamePlayerDB, RoundScoreDB
 
-        # Collect all usernames that are associated with games or rounds
+        all_players = session.query(PlayerDB).all()
+
+        # Collect all usernames that are associated with games or rounds using SQL queries
         protected_usernames = set()
 
-        # Players in game player lists
-        for game in all_games:
-            protected_usernames.update(game.player_usernames)
+        # Players in games (from normalized table)
+        game_players = session.query(GamePlayerDB.username).distinct().all()
+        protected_usernames.update(username for (username,) in game_players)
 
-        # Players in round scores
-        for round_db in all_rounds:
-            protected_usernames.update(round_db.player_raw_scores.keys())
+        # Players in round scores (from normalized table)
+        round_score_players = session.query(RoundScoreDB.username).distinct().all()
+        protected_usernames.update(username for (username,) in round_score_players)
 
         # Players who ended rounds
-        for round_db in all_rounds:
-            protected_usernames.add(round_db.round_ender_username)
+        round_enders = session.query(RoundDB.round_ender_username).distinct().all()
+        protected_usernames.update(username for (username,) in round_enders)
 
         # Identify dangling players
         deleted_usernames = []
@@ -212,6 +212,8 @@ def delete_player(username: str):
     """Delete a player if they have no associated games or rounds."""
     session = get_db_session()
     try:
+        from db import GamePlayerDB, RoundScoreDB
+
         player = session.query(PlayerDB).filter_by(username=username).first()
         if not player:
             raise HTTPException(
@@ -219,23 +221,21 @@ def delete_player(username: str):
                 detail=f"Player with username '{username}' not found",
             )
 
-        # Check if player appears in any game's player list
-        all_games = session.query(GameDB).all()
-        for game in all_games:
-            if username in game.player_usernames:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot delete player '{username}' - they have participated in games (game #{game.id}). Player data must be preserved for game history.",
-                )
+        # Check if player appears in any game (using normalized table)
+        game_player = session.query(GamePlayerDB).filter_by(username=username).first()
+        if game_player:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete player '{username}' - they have participated in games (game #{game_player.game_id}). Player data must be preserved for game history.",
+            )
 
-        # Check if player appears in any round's player_raw_scores
-        all_rounds = session.query(RoundDB).all()
-        for round_db in all_rounds:
-            if username in round_db.player_raw_scores:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Cannot delete player '{username}' - they have participated in games (round scores recorded). Player data must be preserved for game history.",
-                )
+        # Check if player appears in any round scores (using normalized table)
+        score_count = session.query(RoundScoreDB).filter_by(username=username).count()
+        if score_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete player '{username}' - they have participated in games (round scores recorded). Player data must be preserved for game history.",
+            )
 
         # Check if player ended any rounds
         rounds_count = (
@@ -264,9 +264,20 @@ def create_game(game_data: GameCreate):
             get_or_create_player(session, username, surname=None)
         session.commit()
 
-        # Create game
+        # Create game (set JSON for backward compatibility)
         game = GameDB(player_usernames=game_data.player_usernames)
         session.add(game)
+        session.flush()  # Get the game ID
+
+        # Populate normalized game_players table
+        from db import GamePlayerDB
+
+        for order, username in enumerate(game_data.player_usernames):
+            game_player = GamePlayerDB(
+                game_id=game.id, username=username, player_order=order
+            )
+            session.add(game_player)
+
         session.commit()
         session.refresh(game)
 
@@ -400,7 +411,7 @@ def create_round(game_id: int, round_data: RoundCreate):
         # Calculate next round number
         round_number = len(game.rounds) + 1
 
-        # Create round
+        # Create round (set JSON for backward compatibility)
         round_obj = RoundDB(
             game_id=game_id,
             round_number=round_number,
@@ -408,6 +419,17 @@ def create_round(game_id: int, round_data: RoundCreate):
             round_ender_username=round_data.round_ender_username,
         )
         session.add(round_obj)
+        session.flush()  # Get the round ID
+
+        # Populate normalized round_scores table
+        from db import RoundScoreDB
+
+        for username, raw_score in round_data.player_raw_scores.items():
+            round_score = RoundScoreDB(
+                round_id=round_obj.id, username=username, raw_score=raw_score
+            )
+            session.add(round_score)
+
         session.commit()
         session.refresh(round_obj)
 
