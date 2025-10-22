@@ -1,7 +1,7 @@
 # Skyrage Code Review Backlog
 
-**Review Date:** October 12, 2025  
-**Status:** 111 tests passing, all lint/format/type checks green, no warnings
+**Review Date:** October 13, 2025  
+**Status:** 116 tests passing, all lint/format/type checks green, no warnings
 
 ---
 
@@ -24,7 +24,7 @@
 ### Code Quality & Maintainability
 - [x] **Consolidate score doubling logic**: ✅ Resolved by adopting domain models. `main.game_page()` now uses `Round.final_scores()` from domain model instead of duplicating logic.
 - [x] **Consolidate player creation logic**: Duplicated across `api.create_player`, `main.create_player`, `api.create_game`, and `main.create_new_game`. Create single function
-- [ ] **Improve deletion performance**: Replace O(N) full-table scan in `api.delete_player` with filtered SQL queries (JSON contains checks or normalized schema)
+- [x] **Improve deletion performance**: ✅ Resolved by normalized schema. Replaced O(N) full-table scan in `api.delete_player` with O(1) SQL queries using `GamePlayerDB` and `RoundScoreDB` tables.
 - [x] **Fix N+1 queries in domain models**: `model.from_db()` methods open sessions and query per username. Refactor to accept session parameter or use eager loading
 - [x] **Standardize error messages**: Player deletion has inconsistent error messages ("part of game", "participated in games", "ended round"). Unify wording
 
@@ -58,10 +58,23 @@
   - **Status:** All 116 tests passing, linter/formatter/type checks green
 
 ### Performance & Scalability
-- [ ] **JSON schema normalization** ⚠️ **NEEDS INPUT**: Player usernames and scores stored as JSON limits query-ability. Options:
-  - A) Keep current schema (simple, works for small data)
-  - B) Add normalized tables (GamePlayers, RoundScores) for better queries
-  - C) Add indexes on JSON fields (SQLite 3.38+)
+- [x] **JSON schema normalization** ✅ **IMPLEMENTED - Option B**: Normalized schema with proper migration
+  - **Decision:** Option B - Add normalized tables (GamePlayers, RoundScores) for better queries
+  - **Implementation:**
+    - Added Alembic for database migrations (`pyproject.toml`, `alembic.ini`, `alembic/env.py`)
+    - Created `GamePlayerDB` and `RoundScoreDB` models with proper relationships and cascade deletes
+    - Migration script handles both fresh installs and data migration from JSON fields
+    - Updated all API endpoints and web handlers to populate normalized tables
+    - Improved `delete_player()` from O(N) full table scan to O(1) SQL queries using normalized tables
+    - Domain models seamlessly read from either normalized tables or legacy JSON (backward compatibility)
+    - Created test helper functions (`create_game_with_players`, `create_round_with_scores`) for consistency
+  - **Benefits:**
+    - Fast queries: Can now efficiently query "Find all games where player X participated"
+    - Database enforces referential integrity with foreign keys and cascades
+    - Ready for analytics features like leaderboards, player stats, rankings
+    - O(1) player deletion checks instead of O(N) full table scans
+    - Scales to thousands of games and hundreds of players
+  - **Status:** All 116 tests passing, linter/formatter/type checks green
 
 ### Template & Logic Separation
 - [x] **Extract template calculation logic**: ✅ **IMPLEMENTED** - `main.game_page()` now uses domain model display methods (`Round.display_data()`, `Game.rounds_display_data()`, `Game.winner_text()`) to generate template data. Display logic moved from handler to domain layer, reducing handler from ~110 lines to ~50 lines.
@@ -102,10 +115,10 @@
 
 These items require your decision before proceeding:
 
-1. **Score range**: What's the official Skyjo range? -5 to 120 or -15 to 120?
-2. **Domain model strategy**: Keep or remove the Pydantic domain models?
-3. **Username editing**: Should games have local aliases or enforce global username consistency?
-4. **Schema normalization**: Keep JSON or normalize to tables?
+1. ~~**Score range**: What's the official Skyjo range? -5 to 120 or -15 to 120?~~ ✅ **RESOLVED:** -15 to 120
+2. ~~**Domain model strategy**: Keep or remove the Pydantic domain models?~~ ✅ **RESOLVED:** Keep and use throughout app
+3. ~~**Username editing**: Should games have local aliases or enforce global username consistency?~~ ✅ **RESOLVED:** Usernames immutable, surnames editable
+4. ~~**Schema normalization**: Keep JSON or normalize to tables?~~ ✅ **RESOLVED:** Normalized tables implemented
 5. **Round ender default**: Require explicit selection or keep current fallback to first player?
 
 ---
